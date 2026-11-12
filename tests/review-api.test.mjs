@@ -11,10 +11,14 @@ let worksheetApi
 let calls
 let uploadResponse
 let correctionResponse
+/** null이면 페이지 이미지 요청에 404를 돌려줘 응답의 imageUrl로 대체되는 경로를 쓴다. */
+let pageImage
 const originalFetch = globalThis.fetch
 const settings = [{ id: 'grammar', selected: true, level: 'Standard' }]
 const envelope = (result) => ({ isSuccess: true, code: 'COMMON_200', result })
 const file = () => new File(['image'], 'student-writing.jpeg', { type: 'image/jpeg' })
+const requests = () => calls.map(({ method, path }) => `${method} ${path}`)
+const findCall = (method, suffix) => calls.find((call) => call.method === method && call.path.endsWith(suffix))
 
 before(async () => {
   server = await createServer({
@@ -33,12 +37,18 @@ beforeEach(() => {
   calls = []
   uploadResponse = structuredClone(response)
   correctionResponse = envelope({ items: structuredClone(response.result.corrections), total: 3 })
+  pageImage = null
   // 실제 API 클라이언트를 사용하고 통신만 테스트 응답으로 대체한다.
   globalThis.fetch = async (url, init) => {
     init.signal?.throwIfAborted()
     const parsed = new URL(url)
     const path = parsed.pathname
     calls.push({ path, query: parsed.searchParams, ...init })
+    if (/\/pages\/\d+\/image$/.test(path) && init.method === 'GET') {
+      return pageImage
+        ? new Response(pageImage, { headers: { 'Content-Type': 'image/png' } })
+        : new Response(null, { status: 404 })
+    }
     let body
     if (path === '/api/v1/worksheets' && init.method === 'POST') body = uploadResponse
     else if (path.endsWith('/review') && init.method === 'GET') body = response
@@ -66,8 +76,10 @@ test('완료 결과가 포함된 업로드 응답을 변환하고 추가 API 요
   assert.deepEqual(uploaded.completedReview.feedback.map((item) => item.kind), ['correction', 'improvement', 'correction'])
   assert.deepEqual(uploaded.completedReview.appliedIds, ['7', '8', '9'])
   assert.equal(uploaded.completedReview.feedback[0].etag, '"cor_7-v1"')
+  // 업로드 직후에는 표시용 페이지 이미지만 받고, 첨삭 결과는 추가로 요청하지 않는다.
+  assert.deepEqual(requests(), ['POST /api/v1/worksheets', 'GET /api/v1/worksheets/16/pages/1/image'])
   assert.equal(await service.generateReview({ worksheet: uploaded, settings }), uploaded.completedReview)
-  assert.equal(calls.length, 1)
+  assert.equal(calls.length, 2)
   assert.ok(calls[0].body instanceof FormData)
   assert.equal(calls[0].body.get('file').name, 'student-writing.jpeg')
   assert.equal(calls[0].headers.has('Content-Type'), false)
@@ -79,18 +91,21 @@ test('기존 학습지 단독 응답은 설정 저장·분석·결과 조회 흐
   assert.equal(uploaded.completedReview, undefined)
   const result = await service.generateReview({ worksheet: uploaded, settings })
   assert.equal(result.feedback.length, 3)
-  assert.deepEqual(calls.map(({ method, path }) => `${method} ${path}`), [
+  // 페이지 이미지를 받지 못하면 캐시하지 않으므로 결과를 열 때 한 번 더 시도한다.
+  assert.deepEqual(requests(), [
     'POST /api/v1/worksheets',
+    'GET /api/v1/worksheets/16/pages/1/image',
     'PUT /api/v1/worksheets/16/settings',
     'POST /api/v1/worksheets/16/generations',
     'GET /api/v1/worksheets/16/review',
     'GET /api/v1/worksheets/16/corrections',
+    'GET /api/v1/worksheets/16/pages/1/image',
   ])
-  assert.equal(calls[1].headers.get('If-Match'), '"settings_16-v3"')
-  assert.ok(calls[2].headers.get('Idempotency-Key'))
+  assert.equal(findCall('PUT', '/settings').headers.get('If-Match'), '"settings_16-v3"')
+  assert.ok(findCall('POST', '/generations').headers.get('Idempotency-Key'))
   assert.deepEqual(result.appliedIds, ['7', '8', '9'])
-  assert.equal(calls[4].query.get('status'), 'ACTIVE')
-  assert.equal(calls[4].query.get('pageId'), '16')
+  assert.equal(findCall('GET', '/corrections').query.get('status'), 'ACTIVE')
+  assert.equal(findCall('GET', '/corrections').query.get('pageId'), '16')
 })
 
 test('READY 학습지는 결과만 조회하고 중복 분석하지 않는다', async () => {
@@ -98,7 +113,28 @@ test('READY 학습지는 결과만 조회하고 중복 분석하지 않는다', 
   const uploaded = await service.uploadWorksheet(file())
   const result = await service.generateReview({ worksheet: uploaded, settings })
   assert.equal(result.feedback.length, 3)
-  assert.deepEqual(calls.map(({ method }) => method), ['POST', 'GET', 'GET'])
+  assert.deepEqual(requests(), [
+    'POST /api/v1/worksheets',
+    'GET /api/v1/worksheets/16/pages/1/image',
+    'GET /api/v1/worksheets/16/review',
+    'GET /api/v1/worksheets/16/corrections',
+    'GET /api/v1/worksheets/16/pages/1/image',
+  ])
+})
+
+test('페이지 이미지는 인증 요청으로 받아 브라우저 주소로 바꾸고 다시 받지 않는다', async () => {
+  pageImage = new Blob(['png'], { type: 'image/png' })
+  // 다른 테스트의 이미지 캐시와 겹치지 않도록 별도 학습지 ID를 쓴다.
+  uploadResponse = envelope({ ...structuredClone(response.result.worksheet), id: 99 })
+  const first = await service.uploadWorksheet(file())
+  const second = await service.uploadWorksheet(file())
+  assert.match(first.imageUrl, /^blob:/)
+  assert.equal(second.imageUrl, first.imageUrl)
+  assert.deepEqual(requests(), [
+    'POST /api/v1/worksheets',
+    'GET /api/v1/worksheets/99/pages/1/image',
+    'POST /api/v1/worksheets',
+  ])
 })
 
 test('corrections 목록의 결과를 화면에 사용하고 review의 목록으로 덮어쓰지 않는다', async () => {
@@ -258,6 +294,7 @@ test('교사 코멘트는 코멘트의 pageId를 사용해 페이지 정보 없�
 
 test('취소된 요청은 완료 결과가 있어도 열지 않는다', async () => {
   const uploaded = await service.uploadWorksheet(file())
+  const uploadCalls = calls.length
   await assert.rejects(service.generateReview({ worksheet: uploaded, settings, signal: AbortSignal.abort() }), { name: 'AbortError' })
-  assert.equal(calls.length, 1)
+  assert.equal(calls.length, uploadCalls)
 })

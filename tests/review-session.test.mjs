@@ -50,7 +50,8 @@ after(async () => {
 test('파일을 전환해도 추천 문장·반영 상태·교사 코멘트·작성 초안이 유지된다', async () => {
   store.getState().startReview('first', review('first'))
   assert.equal(await store.getState().saveSuggestion('shared', 'first edited'), true)
-  store.getState().toggleApplied()
+  // 반영 여부도 서버에 저장하므로, 끝나기 전에는 파일 전환이 잠긴다.
+  await store.getState().toggleApplied()
   store.getState().setDraft({ left: 10, top: 20, width: 30, height: 5, reverse: false })
   store.getState().finishDraft()
   store.getState().setCommentText('첫 파일 코멘트')
@@ -84,10 +85,10 @@ test('없는 파일 선택은 현재 검토를 변경하지 않는다', () => {
   assert.equal(store.getState().selectReview('first'), true)
 })
 
-test('서버의 반영 상태로 시작하고 파일 전환 후에도 상태를 유지한다', () => {
+test('서버의 반영 상태로 시작하고 파일 전환 후에도 상태를 유지한다', async () => {
   store.getState().startReview('first', { ...review('first'), appliedIds: ['shared', 'missing'] })
   assert.deepEqual(store.getState().appliedIds, ['shared'])
-  store.getState().toggleApplied()
+  await store.getState().toggleApplied()
   store.getState().startReview('second', review('second'))
   assert.deepEqual(store.getState().appliedIds, [])
   store.getState().selectReview('first')
