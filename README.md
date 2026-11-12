@@ -26,7 +26,7 @@ npm run dev
 환경 변수는 `.env.example`을 복사한 `.env`에 적습니다. 값은 하나뿐입니다.
 
 ```bash
-VITE_API_BASE_URL=https://autedi-backend-production.up.railway.app
+VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
 ```
 
 - 값이 있으면 실제 백엔드(`{주소}/api/v1`)를 호출하고 로그인 화면부터 시작합니다.
@@ -40,6 +40,7 @@ VITE_API_BASE_URL=https://autedi-backend-production.up.railway.app
 | 화면 동작 | API |
 | --- | --- |
 | 로그인·로그아웃·새로고침 후 복원 | `POST /auth/login`, `POST /auth/logout`, `GET /users/me` |
+| 초대 링크(`/signup?token=`)로 회원가입 | `GET /invitations/validate?token=` → `POST /auth/signup` (로그인 없이 호출, 성공 시 로그인 화면으로 이동) |
 | 토큰 만료 시 자동 재발급 후 재요청 | `POST /auth/refresh` |
 | 학습지 업로드 | `POST /worksheets` |
 | 첨삭 시작 | `PUT /worksheets/{id}/settings` → `POST .../generations` → `GET .../generations/{genId}` 반복 |

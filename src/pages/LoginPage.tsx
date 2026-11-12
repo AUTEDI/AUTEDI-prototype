@@ -1,14 +1,19 @@
 import { useState, type FormEvent } from 'react'
+import { AUTH_INPUT, AUTH_LABEL, AuthAlert, AuthLayout } from '../components/auth/AuthLayout'
 import { Button } from '../components/common/Button'
-import autediIcon from '../images/pavicon.ico'
 import { useAuthStore } from '../stores/useAuthStore'
 
-const INPUT =
-  'h-10 w-full rounded-[10px] border border-[#dfe1ea] bg-white px-3 text-[11px] outline-none focus:border-[#7684e8] focus:shadow-[0_0_0_3px_#eef0ff]'
+type LoginPageProps = {
+  /** 회원가입 직후처럼 미리 채울 이메일 */
+  initialEmail?: string
+  /** 폼 위에 보여줄 안내 (예: 가입 완료) */
+  notice?: string
+  onLoggedIn?: () => void
+}
 
-export function LoginPage() {
+export function LoginPage({ initialEmail = '', notice, onLoggedIn }: LoginPageProps) {
   const login = useAuthStore((state) => state.login)
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -20,52 +25,44 @@ export function LoginPage() {
       return
     }
     setSubmitting(true)
-    setError(await login(email.trim(), password))
+    const message = await login(email.trim(), password)
+    setError(message)
     setSubmitting(false)
+    if (!message) onLoggedIn?.()
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[linear-gradient(160deg,#181b2f_0%,#111423_62%,#18234e_100%)] px-4">
-      <form
-        className="w-[min(380px,100%)] animate-fade-page rounded-[20px] bg-white p-7 shadow-modal"
-        noValidate
-        onSubmit={submit}
-      >
-        <div className="mb-6 flex items-center gap-[10px]">
-          <img alt="" className="size-8 shrink-0 object-contain" src={autediIcon} />
-          <b className="font-[850] tracking-[1.8px]">AUTEDI</b>
-        </div>
+    <AuthLayout>
+      <form noValidate onSubmit={submit}>
         <h1 className="mb-1.5 text-[21px] tracking-[-0.8px]">선생님 로그인</h1>
         <p className="mb-5 text-[9px] text-[#8a8fa0]">학원에서 받은 계정으로 로그인하세요.</p>
+        {notice && <AuthAlert tone="success">{notice}</AuthAlert>}
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-[8px] font-extrabold text-[#70768a]">이메일</span>
+          <span className={AUTH_LABEL}>이메일</span>
           <input
             autoComplete="email"
-            className={INPUT}
+            className={AUTH_INPUT}
             onChange={(event) => setEmail(event.target.value)}
             type="email"
             value={email}
           />
         </label>
         <label className="mb-4 block">
-          <span className="mb-1.5 block text-[8px] font-extrabold text-[#70768a]">비밀번호</span>
+          <span className={AUTH_LABEL}>비밀번호</span>
           <input
             autoComplete="current-password"
-            className={INPUT}
+            autoFocus={Boolean(initialEmail)}
+            className={AUTH_INPUT}
             onChange={(event) => setPassword(event.target.value)}
             type="password"
             value={password}
           />
         </label>
-        {error && (
-          <p className="mb-3 rounded-lg bg-[#fff5f7] px-3 py-2 text-[9px] text-[#c53843]" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <AuthAlert>{error}</AuthAlert>}
         <Button className="w-full disabled:opacity-60" disabled={submitting} type="submit" variant="primary">
           {submitting ? '로그인 중…' : '로그인'}
         </Button>
       </form>
-    </main>
+    </AuthLayout>
   )
 }

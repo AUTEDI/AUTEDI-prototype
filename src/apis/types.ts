@@ -169,3 +169,26 @@ export type AuthUserDto = {
 export type TokenPair = { accessToken: string; refreshToken: string }
 
 export type LoginResponse = TokenPair & { user: AuthUserDto }
+
+/** GET /invitations/validate 응답. 가입 폼을 자동으로 채우는 데 쓴다. */
+export type InvitationValidateDto = {
+  valid: boolean
+  email: string
+  academyName: string
+  expiresAt: string | null
+}
+
+/** POST /auth/signup 요청. email은 초대 검증 응답의 값을 그대로 보낸다. */
+export type SignupRequest = {
+  token: string
+  email: string
+  name: string
+  password: string
+}
+
+export type SignupResponseDto = {
+  userId: number
+  email: string
+  name: string
+  role: 'DIRECTOR' | 'TEACHER'
+}

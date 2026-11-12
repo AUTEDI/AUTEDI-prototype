@@ -28,6 +28,12 @@ export const API_ERROR_MESSAGES = {
   AUTH_TOKEN_REVOKED: '로그인이 만료되었습니다. 다시 로그인해주세요.',
   AUTH_UNAUTHORIZED: '인증이 필요합니다.',
   USER_NOT_FOUND: '회원 정보를 찾을 수 없습니다.',
+  // 초대 기반 회원가입
+  INVITATION_001: '유효하지 않은 초대 토큰입니다.',
+  INVITATION_002: '만료된 초대 링크입니다.',
+  INVITATION_003: '이미 사용되었거나 취소된 초대 링크입니다.',
+  INVITATION_004: '초대받은 이메일과 가입 요청 이메일이 일치하지 않습니다.',
+  AUTH_009: '이미 가입된 이메일입니다.',
 } as const
 
 export type ApiErrorCode = keyof typeof API_ERROR_MESSAGES
@@ -45,23 +51,28 @@ export class ApiError extends Error {
   readonly code: ApiErrorCode | ClientErrorCode
   /** 명세에 없는 코드가 오면 원래 값을 보관한다. */
   readonly rawCode: string | null
+  /** 입력값 검증 실패의 필드별 사유. 예) { password: '비밀번호는 최소 8자 이상이어야 합니다.' } */
+  readonly fieldErrors: Record<string, string>
 
   constructor({
     status,
     code,
     message,
     rawCode = null,
+    fieldErrors = {},
   }: {
     status: number
     code: ApiErrorCode | ClientErrorCode
     message?: string
     rawCode?: string | null
+    fieldErrors?: Record<string, string>
   }) {
     super(message ?? getDefaultMessage(code))
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.rawCode = rawCode
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -97,6 +108,18 @@ function detailMessage(detail: string) {
   return separator >= 0 ? detail.slice(separator + 2) : detail
 }
 
+/** "password: 메시지" 목록을 필드별 첫 사유로 묶는다. 필드 이름이 없는 사유는 제외한다. */
+function toFieldErrors(details: string[]) {
+  const fieldErrors: Record<string, string> = {}
+  for (const detail of details) {
+    const separator = detail.indexOf(': ')
+    if (separator <= 0) continue
+    const field = detail.slice(0, separator)
+    fieldErrors[field] ??= detail.slice(separator + 2)
+  }
+  return fieldErrors
+}
+
 export function toApiError(status: number, body: unknown) {
   const { code, message, details } = readErrorBody(body)
   const knownCode = isApiErrorCode(code) ? code : null
@@ -106,6 +129,7 @@ export function toApiError(status: number, body: unknown) {
     // 상세 사유가 있으면 "요청 값이 올바르지 않습니다"보다 구체적인 사유를 보여준다.
     message: details[0] ? detailMessage(details[0]) : typeof message === 'string' && message ? message : undefined,
     rawCode: typeof code === 'string' && !knownCode ? code : null,
+    fieldErrors: toFieldErrors(details),
   })
 }
 
