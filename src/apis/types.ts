@@ -117,6 +117,9 @@ export type CorrectionDto = {
   warnings?: unknown
 }
 
+/** GET /worksheets/{id}/comments 응답. 첨삭 목록과 같은 형식들을 받는다. */
+export type CommentListDto = { items: CommentDto[]; total?: number } | CommentDto[] | { comments: CommentDto[] }
+
 export type CorrectionListDto =
   | { items: CorrectionDto[]; total: number }
   | CorrectionDto[]

@@ -1,6 +1,6 @@
 import { api } from './client'
 import { ApiError } from './errors'
-import type { AreaSetting, CommentColor, CommentDto, CorrectionDto, CorrectionFilters, CorrectionListDto, GenerationDto, HighlightType, RegionDto, ReviewDto, WorksheetDto, WorksheetUploadDto } from './types'
+import type { AreaSetting, CommentColor, CommentDto, CommentListDto, CorrectionDto, CorrectionFilters, CorrectionListDto, GenerationDto, HighlightType, RegionDto, ReviewDto, WorksheetDto, WorksheetUploadDto } from './types'
 
 const worksheet = (worksheetId: number) => `/worksheets/${worksheetId}`
 
@@ -74,6 +74,11 @@ export const worksheetApi = {
     worksheetId: number,
     body: { pageId: number; regions: RegionDto[]; highlightType: HighlightType; color: CommentColor; content: string },
   ) => api.post<CommentDto>(`${worksheet(worksheetId)}/comments`, body),
+  getComments: async (worksheetId: number) => {
+    const { data } = await api.get<CommentListDto>(`${worksheet(worksheetId)}/comments`)
+    const comments = Array.isArray(data) ? data : data && 'items' in data ? data.items : data?.comments
+    return Array.isArray(comments) ? comments : []
+  },
   deleteComment: (worksheetId: number, commentId: string, ifMatch: string | null) =>
     api.delete<null>(`${worksheet(worksheetId)}/comments/${commentId}`, { ifMatch }),
 }

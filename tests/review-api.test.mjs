@@ -13,6 +13,9 @@ let uploadResponse
 let correctionResponse
 /** null이면 페이지 이미지 요청에 404를 돌려줘 응답의 imageUrl로 대체되는 경로를 쓴다. */
 let pageImage
+/** 교사 코멘트 목록 조회와 작성 응답 */
+let commentList
+let createdComment
 const originalFetch = globalThis.fetch
 const settings = [{ id: 'grammar', selected: true, level: 'Standard' }]
 const envelope = (result) => ({ isSuccess: true, code: 'COMMON_200', result })
@@ -38,6 +41,8 @@ beforeEach(() => {
   uploadResponse = structuredClone(response)
   correctionResponse = envelope({ items: structuredClone(response.result.corrections), total: 3 })
   pageImage = null
+  commentList = []
+  createdComment = null
   // 실제 API 클라이언트를 사용하고 통신만 테스트 응답으로 대체한다.
   globalThis.fetch = async (url, init) => {
     init.signal?.throwIfAborted()
@@ -55,6 +60,9 @@ beforeEach(() => {
     else if (path.endsWith('/corrections') && init.method === 'GET') body = correctionResponse
     else if (path.endsWith('/settings') && init.method === 'PUT') body = envelope({ etag: '"settings_16-v4"', areas: [] })
     else if (path.endsWith('/generations') && init.method === 'POST') body = envelope(response.result.generation)
+    else if (path.endsWith('/comments') && init.method === 'GET') body = envelope({ items: commentList, total: commentList.length })
+    else if (path.endsWith('/comments') && init.method === 'POST') body = envelope(createdComment)
+    else if (/\/comments\/\d+$/.test(path) && init.method === 'DELETE') return new Response(null, { status: 204 })
     else throw new Error(`Unexpected request: ${init.method} ${path}`)
     return Response.json(body)
   }
@@ -299,15 +307,30 @@ test('취소된 요청은 완료 결과가 있어도 열지 않는다', async ()
   assert.equal(calls.length, uploadCalls)
 })
 
-test('교사 코멘트 ID가 비어 있으면 "null"로 삭제 요청을 보내지 않는다', async () => {
-  const base = { pageId: 16, content: '코멘트', highlightType: 'UNDERLINE', regions: [{ x: 0.2, y: 0.3, width: 0.15, height: 0.04 }], etag: null }
+test('교사 코멘트 ID가 비어 있으면 "null"로 요청하지 않고 목록에서 찾아 삭제한다', async () => {
+  const region = { pageId: 16, x: 0.2, y: 0.3, width: 0.15, height: 0.04 }
+  const saved = (id, extra = {}) => ({ id, pageId: 16, content: '코멘트', highlightType: 'UNDERLINE', regions: [region], etag: `"comment_${id}-v1"`, ...extra })
   assert.equal(mappers.commentServerId({ id: 7 }), '7')
   assert.equal(mappers.commentServerId({ id: null, commentId: 8 }), '8')
   assert.equal(mappers.commentServerId({ id: null }), null)
   assert.equal(mappers.commentServerId({}), null)
-  const [missing] = mappers.toTeacherComments([{ ...base, id: null }], 16)
+
+  // 저장 응답에 ID가 없으면 목록에서 같은 내용·위치의 가장 최근 코멘트를 찾는다.
+  createdComment = saved(null, { etag: null })
+  commentList = [saved(3), saved(5), saved(9, { content: '다른 코멘트' }), saved(11, { regions: [{ ...region, x: 0.6 }] })]
+  const draft = { text: '코멘트', style: 'underline', color: 'blue', box: { left: 20, top: 30, width: 15, height: 4, reverse: false } }
+  assert.deepEqual(await service.createComment(91, 16, draft), { serverId: '5', etag: '"comment_5-v1"' })
+
+  // 목록에서도 못 찾았던 코멘트는 삭제할 때 다시 찾는다.
+  const [missing] = mappers.toTeacherComments([saved(null)], 16)
   assert.equal(missing.serverId, null)
-  const before = calls.length
-  await assert.rejects(service.deleteComment(91, missing), /새로고침/)
-  assert.equal(calls.length, before)
+  calls = []
+  await service.deleteComment(91, 16, missing)
+  assert.deepEqual(requests(), ['GET /api/v1/worksheets/91/comments', 'DELETE /api/v1/worksheets/91/comments/5'])
+  assert.equal(new Headers(calls[1].headers).get('If-Match'), '"comment_5-v1"')
+
+  commentList = []
+  calls = []
+  await assert.rejects(service.deleteComment(91, 16, missing), /찾지 못했어요/)
+  assert.ok(requests().every((request) => !request.endsWith('/null')))
 })

@@ -359,7 +359,7 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
       const comment = get().teacherComments.find((item) => item.id === id)
       if (!comment) return
       try {
-        await reviewService.deleteComment(get().worksheetId, comment)
+        await reviewService.deleteComment(get().worksheetId, get().pageId, comment)
       } catch (error) {
         toast(getErrorMessage(error, '교사 코멘트를 삭제하지 못했어요. 다시 시도해주세요.'))
         return

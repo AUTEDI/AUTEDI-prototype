@@ -2,7 +2,7 @@ import { SAMPLE_FILE_NAME, SAMPLE_WORKSHEET_URL, createSampleFeedback } from '..
 import type { AiFeedback, Box, FeedbackSetting, ReviewData, TeacherComment } from '../types/review'
 import { USE_LIVE_API } from './config'
 import { ApiError, isApiError } from './errors'
-import { boxToRegion, commentServerId, toAreaSettings, toCommentColor, toHighlightType, toReviewData } from './mappers'
+import { boxToRegion, commentServerId, findSavedComment, toAreaSettings, toCommentColor, toHighlightType, toReviewData } from './mappers'
 import type { GenerationDto, WorksheetPageDto, WorksheetStatus } from './types'
 import { worksheetApi } from './worksheetApi'
 
@@ -58,7 +58,20 @@ export type ReviewService = {
     pageId: number | null,
     comment: Pick<TeacherComment, 'text' | 'style' | 'color' | 'box'>,
   ) => Promise<SyncResult & { serverId: string | null }>
-  deleteComment: (worksheetId: number | null, comment: TeacherComment) => Promise<void>
+  deleteComment: (worksheetId: number | null, pageId: number | null, comment: TeacherComment) => Promise<void>
+}
+
+/** 저장 응답에 ID가 없을 때 서버 목록에서 같은 코멘트의 ID와 ETag를 찾는다. 못 찾으면 null이다. */
+async function lookupComment(
+  worksheetId: number,
+  pageId: number | null,
+  comment: Pick<TeacherComment, 'text' | 'style' | 'box'>,
+) {
+  try {
+    return findSavedComment(await worksheetApi.getComments(worksheetId), comment, pageId)
+  } catch {
+    return null
+  }
 }
 
 const GENERATION_POLL_MS = 3_000
@@ -243,18 +256,25 @@ const liveService: ReviewService = {
       color: toCommentColor(comment.color),
       content: comment.text,
     })
-    return { serverId: commentServerId(data), etag: data.etag ?? etag }
+    const serverId = commentServerId(data)
+    if (serverId) return { serverId, etag: data.etag ?? etag }
+    // 저장 응답에 ID가 비어 오면 목록에서 찾아 둔다. 못 찾으면 삭제할 때 다시 찾는다.
+    const found = await lookupComment(requireId(worksheetId), page, comment)
+    return found ?? { serverId: null, etag: data.etag ?? etag }
   },
-  deleteComment: async (worksheetId, comment) => {
-    // 저장 응답에 ID가 없었던 코멘트는 서버에서 지울 수 없다. 새로고침하면 서버의 ID로 다시 불러온다.
-    if (comment.serverId === null) {
+  deleteComment: async (worksheetId, pageId, comment) => {
+    const id = requireId(worksheetId)
+    const target = comment.serverId
+      ? { serverId: comment.serverId, etag: comment.etag }
+      : await lookupComment(id, pageId, comment)
+    if (!target) {
       throw new ApiError({
         status: 0,
         code: 'UNKNOWN_ERROR',
-        message: '코멘트 정보를 아직 받지 못했어요. 새로고침한 뒤 다시 삭제해주세요.',
+        message: '서버에서 이 코멘트를 찾지 못했어요. 잠시 후 다시 시도해주세요.',
       })
     }
-    await worksheetApi.deleteComment(requireId(worksheetId), comment.serverId, comment.etag)
+    await worksheetApi.deleteComment(id, target.serverId, target.etag)
   },
 }
 

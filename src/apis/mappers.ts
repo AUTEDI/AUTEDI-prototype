@@ -144,6 +144,34 @@ export function commentServerId(comment: Pick<CommentDto, 'id' | 'commentId'>): 
   return typeof id === 'number' || (typeof id === 'string' && id !== '') ? String(id) : null
 }
 
+/** 좌표 반올림을 감안해 같은 위치로 보는 차이(%) */
+const SAME_BOX_TOLERANCE = 0.5
+
+/**
+ * 서버 목록에서 화면의 코멘트와 같은 코멘트를 찾는다. 저장 응답에 ID가 비어 왔을 때 쓴다.
+ * 내용·표시 종류·위치가 같고 ID가 있는 것 중 가장 최근(ID가 큰) 것을 고른다.
+ */
+export function findSavedComment(
+  comments: CommentDto[],
+  target: Pick<TeacherComment, 'text' | 'style' | 'box'>,
+  pageId: number | null,
+): { serverId: string; etag: string | null } | null {
+  const highlightType = toHighlightType(target.style)
+  const matches = comments.flatMap((comment) => {
+    const serverId = commentServerId(comment)
+    if (!serverId || comment.content !== target.text || comment.highlightType !== highlightType) return []
+    if (pageId !== null && comment.pageId != null && comment.pageId !== pageId) return []
+    const region = comment.regions[0]
+    if (!region) return []
+    const box = regionToBox(region)
+    const same = (['left', 'top', 'width', 'height'] as const).every(
+      (key) => Math.abs(box[key] - target.box[key]) <= SAME_BOX_TOLERANCE,
+    )
+    return same ? [{ serverId, etag: comment.etag ?? null }] : []
+  })
+  return matches.sort((a, b) => Number(b.serverId) - Number(a.serverId))[0] ?? null
+}
+
 export function toTeacherComments(comments: CommentDto[], pageId: number): TeacherComment[] {
   return comments
     .filter((comment) => comment.pageId === pageId)
