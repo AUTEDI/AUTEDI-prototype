@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 import type { UploadedFile } from '../../stores/useAppStore'
 import { Button } from '../common/Button'
 
@@ -9,10 +9,12 @@ type UploadPreviewProps = {
   onSelect: (id: string) => void
   onRemove: (id: string) => void
   onPhoneUpload: () => void
+  onComputerUpload: (files: File[]) => void
 }
 
-export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, onRemove, onPhoneUpload }: UploadPreviewProps) {
+export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, onRemove, onPhoneUpload, onComputerUpload }: UploadPreviewProps) {
   const titleId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   const index = uploads.findIndex((file) => file.id === activeUploadId)
   const active = uploads[index]
   if (!active) return null
@@ -26,9 +28,27 @@ export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, on
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[12px] font-extrabold text-[#555d79]">업로드한 파일 <span className="ml-1 text-[#5968df]">{uploads.length}</span></h2>
-        <Button disabled={uploading} onClick={onPhoneUpload} size="xs" className="disabled:opacity-50">
-          핸드폰으로 사진 찍어 업로드하기
-        </Button>
+        <div className="flex gap-2">
+          <Button disabled={uploading} onClick={() => inputRef.current?.click()} size="xs" className="disabled:opacity-50">
+            + 컴퓨터에서 추가
+          </Button>
+          <Button disabled={uploading} onClick={onPhoneUpload} size="xs" variant="primary" className="disabled:opacity-50">
+            핸드폰으로 사진 찍어 올리기
+          </Button>
+          <input
+            accept="image/jpeg,image/png"
+            aria-label="컴퓨터에서 파일 추가"
+            className="hidden"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? [])
+              if (files.length) onComputerUpload(files)
+              event.target.value = ''
+            }}
+            ref={inputRef}
+            type="file"
+          />
+        </div>
       </div>
       <div
         aria-label="업로드한 파일 미리보기"

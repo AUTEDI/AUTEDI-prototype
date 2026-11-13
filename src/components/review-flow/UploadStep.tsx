@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { SAMPLE_WORKSHEET_URL } from '../../constants/sampleReview'
 import { useAppStore } from '../../stores/useAppStore'
 import { useQrStore } from '../../stores/useQrStore'
@@ -8,6 +9,45 @@ import { LevelToggle } from '../common/LevelToggle'
 import { UploadIcon } from '../layout/icons'
 import { FlowActions } from './FlowActions'
 import { UploadPreview } from './UploadPreview'
+
+const ACCEPT_IMAGES = 'image/jpeg,image/png'
+
+/** 보조 업로드 수단. 컴퓨터에 있는 사진 파일을 직접 고른다. */
+function ComputerUploadButton({ disabled, onFiles }: { disabled: boolean; onFiles: (files: File[]) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <button
+        className="flex items-center gap-[10px] rounded-xl border border-line bg-white px-3 py-[10px] text-left transition hover:bg-[#f6f7ff] disabled:opacity-60"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        type="button"
+      >
+        <span className="grid size-[43px] flex-none place-items-center rounded-lg bg-[#eef0ff]">
+          <UploadIcon className="size-[19px] fill-none stroke-[#5d6de4] stroke-[1.7]" />
+        </span>
+        <div className="grid gap-[3px]">
+          <b className="text-[9px]">컴퓨터에서 파일 올리기</b>
+          <small className="text-[7px] text-[#9b9fac]">JPG · PNG 파일을 고르거나 이 영역에 끌어다 놓으세요.</small>
+        </div>
+      </button>
+      <input
+        accept={ACCEPT_IMAGES}
+        aria-label="컴퓨터에서 파일 선택"
+        className="hidden"
+        multiple
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? [])
+          if (files.length) onFiles(files)
+          // 같은 파일을 다시 골라도 change가 일어나도록 비운다.
+          event.target.value = ''
+        }}
+        ref={inputRef}
+        type="file"
+      />
+    </>
+  )
+}
 
 function SampleUploadButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   return (
@@ -86,6 +126,7 @@ export function UploadStep({ onStart }: { onStart: () => void }) {
   const creatingQr = useQrStore((state) => state.creating)
   const syncingPhoto = useQrStore((state) => state.syncing)
   const loadSample = useAppStore((state) => state.loadSample)
+  const loadFiles = useAppStore((state) => state.loadFiles)
   const removeFile = useAppStore((state) => state.removeFile)
   const navigate = useAppStore((state) => state.navigate)
 
@@ -96,6 +137,12 @@ export function UploadStep({ onStart }: { onStart: () => void }) {
           'grid min-h-[515px] min-w-0 gap-3 rounded-[18px] border border-line bg-white p-5 shadow-card max-sm:min-h-[420px]',
           uploads.length ? 'grid-rows-[1fr]' : 'grid-rows-[1fr_auto]',
         )}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault()
+          const files = Array.from(event.dataTransfer.files)
+          if (files.length && !uploading) void loadFiles(files)
+        }}
       >
         {uploads.length ? (
           <UploadPreview
@@ -105,6 +152,7 @@ export function UploadStep({ onStart }: { onStart: () => void }) {
             onSelect={selectUpload}
             onRemove={removeFile}
             onPhoneUpload={() => void openSession()}
+            onComputerUpload={(files) => void loadFiles(files)}
           />
         ) : (
           <>
@@ -119,7 +167,10 @@ export function UploadStep({ onStart }: { onStart: () => void }) {
               <span className="text-[11px] leading-relaxed text-[#8a8fa0]">QR을 스캔하고 학습지를 촬영하면<br />이 화면에 사진이 자동으로 표시돼요.</span>
               <span className="mt-5 text-[9px] font-extrabold tracking-[1px] text-[#a0a4b3]">JPG · PNG · 사진 한 장</span>
             </button>
-            <SampleUploadButton disabled={uploading} onClick={() => void loadSample()} />
+            <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+              <ComputerUploadButton disabled={uploading} onFiles={(files) => void loadFiles(files)} />
+              <SampleUploadButton disabled={uploading} onClick={() => void loadSample()} />
+            </div>
           </>
         )}
       </div>
