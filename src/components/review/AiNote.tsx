@@ -82,7 +82,7 @@ export function AiNote({ item, dismissed, layout }: {
   return (
     <button
       className={cn(
-        'absolute z-[8] w-[136px] touch-none overflow-auto px-[5px] py-0.5 text-left font-hand select-none',
+        'absolute z-[8] w-[136px] touch-none overflow-visible px-[5px] py-0.5 text-left font-hand select-none',
         'sm:max-lg:w-[106px] max-sm:w-[78px]',
         item.kind === 'correction' ? 'text-correction-ink' : 'text-improvement-ink',
         dragging && 'cursor-grabbing opacity-82',
