@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { getErrorMessage } from '../apis/errors'
 import { GenerationFailedError, reviewService, type GenerationProgress } from '../apis/reviewService'
 import { GenerationStep } from '../components/review-flow/GenerationStep'
-import { SessionSettingsStep } from '../components/review-flow/SessionSettingsStep'
 import { UploadStep } from '../components/review-flow/UploadStep'
 import { WorkflowHeader } from '../components/review-flow/WorkflowHeader'
 import { ReviewStep } from '../components/review/ReviewStep'
@@ -13,7 +12,6 @@ import type { FeedbackSetting, ReviewData } from '../types/review'
 export function ReviewPage() {
   const step = useAppStore((state) => state.step)
   const setStep = useAppStore((state) => state.setStep)
-  const resetSessionSettings = useAppStore((state) => state.resetSessionSettings)
   const showToast = useAppStore((state) => state.showToast)
   const markWorksheetReady = useAppStore((state) => state.markWorksheetReady)
   const startReview = useReviewStore((state) => state.startReview)
@@ -81,23 +79,10 @@ export function ReviewPage() {
     }
   }
 
-  const startWithDefaults = () => {
-    resetSessionSettings()
-    void runGeneration(useAppStore.getState().defaults)
-  }
-
-  const customizeSettings = () => {
-    resetSessionSettings()
-    setStep('settings')
-  }
-
   return (
     <section className="mx-auto max-w-[1500px] animate-fade-page px-[42px] pt-9 pb-6 max-sm:px-[14px] max-sm:py-[25px]">
       <WorkflowHeader step={step} />
-      {step === 'upload' && <UploadStep onCustomize={customizeSettings} onStart={startWithDefaults} />}
-      {step === 'settings' && (
-        <SessionSettingsStep onStart={() => void runGeneration(useAppStore.getState().sessionSettings)} />
-      )}
+      {step === 'upload' && <UploadStep onStart={() => void runGeneration(useAppStore.getState().sessionSettings)} />}
       {step === 'generation' && <GenerationStep generation={generationProgress} />}
       {step === 'review' && (
         <ReviewStep

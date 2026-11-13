@@ -6,11 +6,6 @@ export const FLOW_META: Record<FlowStep, { title: string; subtitle: string; step
     subtitle: '글이 적힌 실제 사진이나 스캔 파일을 업로드하세요. 원본 이미지는 수정되지 않아요.',
     step: 1,
   },
-  settings: {
-    title: '이번 첨삭 설정을 확인해주세요',
-    subtitle: '저장된 기본 설정 대신 이번 사진에서만 사용할 영역과 수준을 선택하세요.',
-    step: 1,
-  },
   generation: {
     title: 'AI 첨삭을 생성하고 있어요',
     subtitle: '사진 속 글의 위치를 분석해 원본 위에 별도 첨삭 레이어를 만들어요.',
@@ -23,4 +18,7 @@ export const FLOW_META: Record<FlowStep, { title: string; subtitle: string; step
   },
 }
 
-export const FLOW_STEP_COUNT = 3
+/** 단계 표시 아래에 붙는 이름 */
+export const FLOW_STEP_LABELS = ['파일 업로드', 'AI 첨삭 생성', '첨삭 검토']
+
+export const FLOW_STEP_COUNT = FLOW_STEP_LABELS.length

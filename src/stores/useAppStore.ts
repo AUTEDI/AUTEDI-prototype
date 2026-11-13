@@ -34,7 +34,6 @@ type AppState = {
   showToast: (message: string, action?: ToastAction) => void
   hideToast: () => void
   saveDefaults: (settings: FeedbackSetting[]) => boolean
-  resetSessionSettings: () => void
   updateSessionSetting: (setting: FeedbackSetting) => void
   loadFiles: (files: File[]) => Promise<void>
   loadSample: () => Promise<void>
@@ -121,7 +120,8 @@ export const useAppStore = create<AppState>()((set, get) => {
     uploading: false,
 
     navigate: (page) => {
-      set(page === 'ai' ? { page, step: 'upload' } : { page })
+      // 새 첨삭은 매번 저장된 기본 설정에서 시작한다.
+      set(page === 'ai' ? { page, step: 'upload', sessionSettings: cloneSettings(get().defaults) } : { page })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     setStep: (step) => set({ step }),
@@ -143,7 +143,6 @@ export const useAppStore = create<AppState>()((set, get) => {
       get().showToast('기본 첨삭 설정을 저장했어요')
       return true
     },
-    resetSessionSettings: () => set({ sessionSettings: cloneSettings(get().defaults) }),
     updateSessionSetting: (next) =>
       set((state) => ({
         sessionSettings: state.sessionSettings.map((setting) => (setting.id === next.id ? next : setting)),

@@ -11,7 +11,7 @@ export type FeedbackSetting = {
   level: FeedbackLevel
 }
 
-export type FlowStep = 'upload' | 'settings' | 'generation' | 'review'
+export type FlowStep = 'upload' | 'generation' | 'review'
 
 /** 사진 기준 퍼센트(0~100) 좌표 */
 export type Box = {

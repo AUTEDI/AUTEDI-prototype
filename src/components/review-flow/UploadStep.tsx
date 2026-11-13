@@ -4,7 +4,7 @@ import { useQrStore } from '../../stores/useQrStore'
 import type { FeedbackSetting } from '../../types/review'
 import { cn } from '../../utils/cn'
 import { Button } from '../common/Button'
-import { PresetList } from '../common/PresetList'
+import { LevelToggle } from '../common/LevelToggle'
 import { UploadIcon } from '../layout/icons'
 import { FlowActions } from './FlowActions'
 import { UploadPreview } from './UploadPreview'
@@ -29,35 +29,58 @@ function SampleUploadButton({ disabled, onClick }: { disabled: boolean; onClick:
   )
 }
 
-function AppliedSettingsCard({ settings, onChange, disabled }: { settings: FeedbackSetting[]; onChange: () => void; disabled: boolean }) {
+const sameSettings = (a: FeedbackSetting[], b: FeedbackSetting[]) =>
+  a.every((setting, index) => setting.selected === b[index]?.selected && setting.level === b[index]?.level)
+
+/** 이번 첨삭의 영역과 정도를 이 화면에서 바로 바꾼다. 기본 설정은 바뀌지 않는다. */
+function SessionSettingsCard() {
+  const settings = useAppStore((state) => state.sessionSettings)
+  const defaults = useAppStore((state) => state.defaults)
+  const updateSessionSetting = useAppStore((state) => state.updateSessionSetting)
+  const isDefault = sameSettings(settings, defaults)
+
   return (
     <aside className="rounded-[18px] border border-line bg-white p-6 shadow-card max-sm:mt-3">
       <div className="flex items-start justify-between">
-        <h2 className="my-1.5 text-[18px]">이번 첨삭 설정</h2>
-        <span className="rounded-md bg-[#eceaff] px-[7px] py-[5px] text-[7px] text-[#5b58c8]">기본 설정</span>
+        <h2 className="my-1.5 text-[18px]">첨삭 영역</h2>
+        <span className="rounded-md bg-[#eceaff] px-[7px] py-[5px] text-[7px] text-[#5b58c8]">
+          {isDefault ? '기본 설정' : '이번 첨삭만'}
+        </span>
       </div>
-      <p className="mt-px mb-[17px] text-[9px] text-[#8a8fa0]">저장된 기본 설정이 자동으로 적용됩니다.</p>
-      <PresetList className="my-5" settings={settings} />
-      <Button className="w-full disabled:opacity-50" disabled={disabled} onClick={onChange}>
-        이번 첨삭에서만 변경
-      </Button>
-      <div className="mt-3 text-center text-[7px] text-[#9b9fac]">
+      <p className="mt-px mb-5 text-[9px] text-[#8a8fa0]">저장된 기본 설정이 자동으로 적용돼요. 여기서 바꾸면 이번 첨삭에만 적용돼요.</p>
+      <div className="grid gap-[10px]">
+        {settings.map((setting) => (
+          <div className="flex items-center gap-2" key={setting.id}>
+            <label className="flex w-[92px] shrink-0 cursor-pointer items-center gap-[7px] text-[10px] font-bold">
+              <input
+                checked={setting.selected}
+                className="size-[13px] accent-[#4f5fd2]"
+                onChange={() => updateSessionSetting({ ...setting, selected: !setting.selected })}
+                type="checkbox"
+              />
+              {setting.name}
+            </label>
+            <LevelToggle
+              className="flex-1"
+              label={setting.name}
+              muted={!setting.selected}
+              onChange={(level) => updateSessionSetting({ ...setting, selected: true, level })}
+              value={setting.level}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 text-center text-[7px] text-[#9b9fac]">
         학생 실력 등급이 아닌, AI가 원문에 개입하는 정도입니다.
       </div>
     </aside>
   )
 }
 
-type UploadStepProps = {
-  onCustomize: () => void
-  onStart: () => void
-}
-
-export function UploadStep({ onCustomize, onStart }: UploadStepProps) {
+export function UploadStep({ onStart }: { onStart: () => void }) {
   const uploads = useAppStore((state) => state.uploads)
   const activeUploadId = useAppStore((state) => state.activeUploadId)
   const selectUpload = useAppStore((state) => state.selectUpload)
-  const defaults = useAppStore((state) => state.defaults)
   const uploading = useAppStore((state) => state.uploading)
   const openSession = useQrStore((state) => state.openSession)
   const creatingQr = useQrStore((state) => state.creating)
@@ -100,12 +123,12 @@ export function UploadStep({ onCustomize, onStart }: UploadStepProps) {
           </>
         )}
       </div>
-      <AppliedSettingsCard disabled={uploading} onChange={onCustomize} settings={defaults} />
+      <SessionSettingsCard />
       {uploads.length > 1 && <p className="col-span-full text-[10px] text-[#8a8fa0]">현재 파일부터 첨삭을 시작합니다. 다른 파일은 첨삭 화면의 원본 목록에서 선택할 수 있어요.</p>}
       <FlowActions>
         <Button onClick={() => navigate('home')}>취소</Button>
         <Button disabled={!uploads.length || uploading || syncingPhoto} onClick={onStart} variant="primary">
-          {uploads.length > 1 ? '선택한 파일 첨삭 시작' : '기본 설정으로 첨삭 시작'} <b className="ml-2">✦</b>
+          {uploads.length > 1 ? '선택한 파일 첨삭 시작' : '이 설정으로 첨삭 시작'} <b className="ml-2">✦</b>
         </Button>
       </FlowActions>
     </div>
