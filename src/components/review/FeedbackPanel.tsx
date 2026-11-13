@@ -39,7 +39,7 @@ function AnnotationSummary() {
   const teacherCount = useReviewStore((state) => state.teacherComments.length)
 
   return (
-    <div className="mt-auto flex justify-between border-t border-line pt-[15px] text-[7px] text-[#858a9c]">
+    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-line bg-white pt-[15px] text-[7px] text-[#858a9c]">
       <span>
         <b className="text-[#4d60d6]">{remainingAi}</b> AI 첨삭
       </span>
@@ -58,7 +58,7 @@ export function FeedbackPanel() {
   if (!panelOpen) return null
 
   return (
-    <aside className="relative flex flex-col overflow-auto border-l border-[#dfe2ec] bg-white px-[18px] py-[22px] max-lg:px-[14px] sm:max-lg:py-[18px] max-sm:min-h-0 max-sm:border-t max-sm:border-l-0 max-sm:border-t-line max-sm:pt-[45px] max-sm:pb-[18px]">
+    <aside className="relative grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-l border-[#dfe2ec] bg-white px-[18px] py-[22px] max-lg:px-[14px] sm:max-lg:py-[18px] max-sm:border-t max-sm:border-l-0 max-sm:border-t-line max-sm:pt-[45px] max-sm:pb-[18px]">
       <button
         aria-label="피드백 패널 닫기"
         className="absolute top-[9px] right-[10px] z-[2] size-[27px] rounded-lg border border-[#d9ddff] bg-[#eef0ff] text-[16px] leading-none text-[#5363df] hover:border-[#bec6ff] hover:bg-[#e2e6ff] hover:text-[#3548c3]"
@@ -68,7 +68,9 @@ export function FeedbackPanel() {
         ×
       </button>
       <PanelModeSwitch />
-      {panelMode === 'ai' ? <AiFeedbackPanel /> : <TeacherCommentEditor />}
+      <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain pb-4 [scrollbar-gutter:stable]">
+        {panelMode === 'ai' ? <AiFeedbackPanel /> : <TeacherCommentEditor />}
+      </div>
       <AnnotationSummary />
     </aside>
   )
