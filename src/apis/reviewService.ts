@@ -110,13 +110,13 @@ const pageImages = new Map<string, Promise<string>>()
  * 페이지 이미지 주소. S3 주소는 권한 없이 열리지 않을 수 있어서,
  * 토큰을 붙여 페이지 이미지 API로 받은 뒤 브라우저 주소(blob:)로 바꾼다. 실패하면 응답의 주소를 그대로 쓴다.
  */
-function pageImageUrl(worksheetId: number, page: WorksheetPageDto | undefined, fallback: string) {
+function pageImageUrl(worksheetId: number, page: WorksheetPageDto | undefined, fallback: string, signal?: AbortSignal) {
   if (!page) return Promise.resolve(fallback)
   const key = `${worksheetId}:${page.pageNumber}`
   let url = pageImages.get(key)
   if (!url) {
     url = worksheetApi
-      .getPageImage(worksheetId, page.pageNumber)
+      .getPageImage(worksheetId, page.pageNumber, signal)
       .then(({ data }) => URL.createObjectURL(data))
       .catch(() => {
         pageImages.delete(key)
@@ -125,6 +125,32 @@ function pageImageUrl(worksheetId: number, page: WorksheetPageDto | undefined, f
     pageImages.set(key, url)
   }
   return url
+}
+
+/** 휴대폰에서 생성·교체한 작업을 기존 업로드 미리보기 형식으로 가져온다. */
+export async function fetchUploadedWorksheet(worksheetId: number, signal?: AbortSignal) {
+  const { data } = await worksheetApi.get(worksheetId, signal)
+  signal?.throwIfAborted()
+  for (const [key, url] of pageImages) {
+    if (!key.startsWith(`${worksheetId}:`)) continue
+    pageImages.delete(key)
+    void url.then((value) => { if (value.startsWith('blob:')) URL.revokeObjectURL(value) })
+  }
+  const page = data.pages[0]
+  const imageUrl = await pageImageUrl(worksheetId, page, page?.imageUrl ?? data.file.originalUrl, signal)
+  signal?.throwIfAborted()
+  const worksheet: UploadedWorksheet = {
+    worksheetId: data.id,
+    pageId: page?.id ?? null,
+    imageUrl,
+    status: data.status,
+    settingsEtag: data.settings.etag,
+  }
+  return {
+    name: data.file.name,
+    meta: `${(data.file.sizeBytes / 1024 / 1024).toFixed(1)} MB · 준비 완료`,
+    worksheet,
+  }
 }
 
 async function loadReview(worksheetId: number, signal?: AbortSignal): Promise<ReviewData> {

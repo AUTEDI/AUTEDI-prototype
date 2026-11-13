@@ -1,4 +1,4 @@
-import { useId, useRef } from 'react'
+import { useId } from 'react'
 import type { UploadedFile } from '../../stores/useAppStore'
 import { Button } from '../common/Button'
 
@@ -8,11 +8,10 @@ type UploadPreviewProps = {
   uploading: boolean
   onSelect: (id: string) => void
   onRemove: (id: string) => void
-  onFiles: (files: File[]) => void
+  onPhoneUpload: () => void
 }
 
-export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, onRemove, onFiles }: UploadPreviewProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, onRemove, onPhoneUpload }: UploadPreviewProps) {
   const titleId = useId()
   const index = uploads.findIndex((file) => file.id === activeUploadId)
   const active = uploads[index]
@@ -25,25 +24,11 @@ export function UploadPreview({ uploads, activeUploadId, uploading, onSelect, on
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[12px] font-extrabold text-[#555d79]">업로드한 파일 <span className="ml-1 text-[#5968df]">{uploads.length}</span></h2>
-        <Button disabled={uploading} onClick={() => inputRef.current?.click()} size="xs" className="disabled:opacity-50">
-          {uploading ? '파일 올리는 중…' : '+ 파일 추가'}
+        <Button disabled={uploading} onClick={onPhoneUpload} size="xs" className="disabled:opacity-50">
+          핸드폰으로 사진 찍어 업로드하기
         </Button>
-        <input
-          ref={inputRef}
-          aria-label="미리보기에 파일 추가"
-          accept="image/jpeg,image/png"
-          className="hidden"
-          disabled={uploading}
-          multiple
-          onChange={(event) => {
-            const files = Array.from(event.target.files ?? [])
-            if (files.length) onFiles(files)
-            event.target.value = ''
-          }}
-          type="file"
-        />
       </div>
       <div
         aria-label="업로드한 파일 미리보기"

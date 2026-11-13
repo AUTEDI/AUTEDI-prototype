@@ -5,6 +5,7 @@
 
 ## 주요 기능
 
+- **휴대폰 사진 업로드**: AI 첨삭 화면에서 QR 생성 → 휴대폰 스캔 → PC 승인(이미 로그인된 같은 계정은 바로 연결) → 사진 한 장 업로드 → PC 미리보기 자동 반영. 첨삭은 PC에서 시작 버튼으로 실행
 - **여러 파일 검토**: 업로드한 파일을 원본 목록에서 선택해 이미지와 첨삭 결과를 전환. 처음 선택할 때 첨삭을 생성하고, 업로드 응답에 완료된 결과가 있으면 추가 요청 없이 사용. 이후에는 파일별 수정 내용·코멘트·작성 초안을 이번 접속 동안 유지
 - **첨삭 설정**: 영역(문법·철자 / 어휘·표현 / 문장 구성 / 내용·요약)과 수준(Standard·Advanced)을 영역별로 선택
 - **AI 첨삭 검토**: 원본 이미지 위에 첨삭을 겹쳐 보고, 우측 패널에서 항목별로 유지·수정·삭제
@@ -23,14 +24,19 @@ npm run dev
 
 개발 서버는 `http://localhost:5173`에서 열립니다. 포트가 이미 사용 중이면 다른 포트로 바꾸지 않고 실행을 멈추니, 기존 서버를 끄고 다시 실행하세요.
 
-환경 변수는 `.env.example`을 복사한 `.env`에 적습니다. 값은 하나뿐입니다.
+모바일은 서버가 생성한 QR의 `/qr-login?token=...` 링크로 진입합니다. PC 승인 후 사진 한 장의 촬영·선택·미리보기·업로드를 지원하며, 토큰 없이 접속하면 QR 스캔 안내를 표시합니다. 실제 휴대폰 테스트에는 QR 링크의 프런트 도메인이 이 코드가 배포된 주소를 가리켜야 합니다. QR과 SSE는 실제 API 모드에서만 동작합니다.
+
+로컬 개발용 환경 변수는 프로젝트 루트의 `.env.development.local`에 적습니다. 백엔드 기본 주소는 `http://localhost:8080`이며, 실제 백엔드 포트가 다르면 아래 값을 바꾸세요. 이 파일은 Git에서 제외됩니다. 새 환경에서는 `.env.example`을 복사해 만들 수 있습니다.
 
 ```bash
-VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
 - 값이 있으면 실제 백엔드(`{주소}/api/v1`)를 호출하고 로그인 화면부터 시작합니다.
 - 비워 두면 백엔드 없이 예시 데이터로 동작합니다(로그인 없음, 시연용).
+- REST와 SSE 모두 이 주소를 사용합니다. 백엔드는 프런트 주소 `http://localhost:5173`의 CORS 요청을 허용해야 합니다.
+- `.env.development.local`은 `npm run dev`에서 `.env`보다 우선하며, 기본 `npm run build`에는 적용되지 않습니다. 배포용 주소는 `.env` 또는 배포 환경 변수로 설정합니다.
+- 환경 변수 변경 후에는 개발 서버를 재시작하세요. 휴대폰에서 로컬 백엔드를 사용하려면 `localhost` 대신 휴대폰에서도 접근할 수 있는 PC의 LAN 주소나 터널 주소가 필요합니다.
 - Vercel에서는 Settings → Environment Variables에 같은 이름으로 넣고 다시 배포해야 적용됩니다.
 
 ## API 연동 범위
@@ -44,6 +50,10 @@ VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
 | 선생님 초대 메일 발송 (원장 계정만 사이드바에 메뉴 표시) | `POST /invitations` (`{ email }`, 메일은 서버가 발송) |
 | 토큰 만료 시 자동 재발급 후 재요청 | `POST /auth/refresh` |
 | 학습지 업로드 | `POST /worksheets` |
+| QR 생성·승인·거절 | `POST /auth/qr-sessions` (첫 사진은 `{}`), `POST .../{sessionId}/approve`, `POST .../{sessionId}/reject` |
+| 휴대폰 QR 로그인 | `POST .../link` 또는 `POST .../scan` → `POST .../status` (2초 간격) → `POST .../token` |
+| 휴대폰 사진 업로드 | 첫 사진은 `POST /worksheets`, 교체용 QR은 `PUT /worksheets/{id}/file` (최신 `If-Match`) |
+| PC 실시간 반영 | `GET /events`에서 `qr.scanned`, `qr.linked`, `worksheet.created`, `worksheet.file_replaced` 수신 후 작업·페이지 이미지 재조회 |
 | 첨삭 시작 | `PUT /worksheets/{id}/settings` → `POST .../generations` → `GET .../generations/{genId}` 반복 |
 | 검토 화면의 원본·교사 코멘트 | `GET /worksheets/{id}/review` |
 | AI 첨삭 목록 | `GET /worksheets/{id}/corrections?status=ACTIVE&pageId={pageId}` |
@@ -62,6 +72,8 @@ VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
 
 응답 변환, 중복 분석 방지, 파일별 첨삭 상태와 저장 중 파일 전환 방지는 `npm run test:review`로 검증할 수 있습니다. 테스트는 통신을 대체하며 실제 서버에 요청하지 않습니다.
 
+QR 테스트도 같은 명령에 포함됩니다. 승인·기존 계정 연결·첫 사진 및 교체 업로드·중복 이벤트·미리보기 갱신·SSE 재연결과 토큰 재발급을 검증합니다. PC는 탭당 SSE 연결 하나를 유지하고, 연결 종료 시 최대 30초 간격까지 백오프하며 최신 토큰으로 다시 연결합니다. 이미 수신한 작업 ID의 조회 실패는 재시도할 수 있습니다. 다만 최초 `worksheet.created` 이벤트 자체를 단절 중 놓친 경우에는 새 작업 ID를 복구할 세션 조회/이벤트 재전송 API가 아직 명세에 없어 자동 복구하지 못합니다. 첨삭 생성 완료 확인은 기존 폴링을 유지합니다.
+
 ## 폴더 구조
 
 ```text
@@ -71,8 +83,8 @@ src/
   components/   common(버튼·모달 등) · layout · home · review-flow(업로드~생성) · review(검토 화면)
   constants/    첨삭 설정, 단계 문구, 예시 첨삭 데이터
   hooks/        드래그 같은 공통 훅
-  pages/        LoginPage, HomePage, ReviewPage
-  stores/       Zustand 상태 (인증, 앱 전체, 검토 화면)
+  pages/        LoginPage, SignupPage, HomePage, ReviewPage, MobileUploadPage
+  stores/       Zustand 상태 (인증, 앱 전체, 검토 화면, PC QR 세션)
   types/        도메인 타입
   utils/        좌표 계산, className 도우미
 ```
