@@ -1,4 +1,5 @@
 import { SAMPLE_FILE_NAME, SAMPLE_WORKSHEET_URL, createSampleFeedback } from '../constants/sampleReview'
+import { abortableDelay as wait } from '../utils/abortableDelay'
 import type { AiFeedback, Box, FeedbackSetting, ReviewData, TeacherComment } from '../types/review'
 import { USE_LIVE_API } from './config'
 import { ApiError, isApiError } from './errors'
@@ -35,6 +36,10 @@ export type UploadedWorksheet = {
 
 type SyncResult = { etag: string | null }
 
+/** 서버가 알려준 생성 작업과 현재 단계. 진행률을 시간으로 추정하지 않는다. */
+export type GenerationProgress = Pick<GenerationDto, 'id' | 'status' | 'stage'>
+type GenerationObserver = (progress: GenerationProgress) => void
+
 /** 화면이 쓰는 첨삭 기능. 실제 API와 예시 데이터 구현이 같은 모양이다. */
 export type ReviewService = {
   uploadWorksheet: (file: File) => Promise<UploadedWorksheet>
@@ -43,9 +48,10 @@ export type ReviewService = {
     worksheet: UploadedWorksheet
     settings: FeedbackSetting[]
     signal?: AbortSignal
+    onProgress?: GenerationObserver
   }) => Promise<ReviewData>
   /** 실패한 생성 작업을 다시 실행하고 결과를 연다. */
-  retryReview: (params: { worksheet: UploadedWorksheet; generationId: number; signal?: AbortSignal }) => Promise<ReviewData>
+  retryReview: (params: { worksheet: UploadedWorksheet; generationId: number; signal?: AbortSignal; onProgress?: GenerationObserver }) => Promise<ReviewData>
   updateSuggestion: (worksheetId: number | null, item: AiFeedback, content: string) => Promise<SyncResult>
   setApplied: (worksheetId: number | null, item: AiFeedback, applied: boolean) => Promise<SyncResult>
   /** AI 표시를 옮기거나 크기를 바꾼 위치를 저장한다. */
@@ -65,16 +71,6 @@ const GENERATION_POLL_MS = 3_000
 const GENERATION_TIMEOUT_MS = 3 * 60 * 1000
 const SAMPLE_GENERATION_MS = 2700
 
-function wait(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(resolve, ms)
-    signal?.addEventListener('abort', () => {
-      window.clearTimeout(timer)
-      reject(signal.reason)
-    })
-  })
-}
-
 function assertSettings(settings: FeedbackSetting[]) {
   if (!settings.some((setting) => setting.selected)) throw new ApiError({ status: 400, code: 'GENERATION_004' })
 }
@@ -86,10 +82,13 @@ function requireId(id: number | null): number {
 
 // ---------- 실제 API ----------
 
-async function waitForGeneration(worksheetId: number, generation: GenerationDto, signal?: AbortSignal) {
+async function waitForGeneration(worksheetId: number, generation: GenerationDto, signal?: AbortSignal, onProgress?: GenerationObserver) {
   const startedAt = Date.now()
   let current = generation
-  while (current.status !== 'SUCCEEDED') {
+  while (true) {
+    signal?.throwIfAborted()
+    onProgress?.({ id: current.id, status: current.status, stage: current.stage })
+    if (current.status === 'SUCCEEDED') return
     // 서버가 알려준 원인(AI_TIMEOUT 등)의 안내 문구와 재시도 가능 여부를 그대로 전달한다.
     if (current.status === 'FAILED') throw new GenerationFailedError(current)
     if (Date.now() - startedAt > GENERATION_TIMEOUT_MS) {
@@ -166,10 +165,10 @@ async function loadReview(worksheetId: number, signal?: AbortSignal): Promise<Re
 }
 
 /** 생성을 시작한다. 이미 진행 중이면 그 작업을 이어서 기다리고, 이미 끝났으면 바로 결과를 연다. */
-async function startAndWait(worksheetId: number, signal?: AbortSignal) {
+async function startAndWait(worksheetId: number, signal?: AbortSignal, onProgress?: GenerationObserver) {
   try {
     const { data } = await worksheetApi.startGeneration(worksheetId, crypto.randomUUID())
-    await waitForGeneration(worksheetId, data, signal)
+    await waitForGeneration(worksheetId, data, signal, onProgress)
   } catch (error) {
     if (!isApiError(error)) throw error
     if (error.code === 'GENERATION_002') return
@@ -177,7 +176,7 @@ async function startAndWait(worksheetId: number, signal?: AbortSignal) {
     const { data: worksheet } = await worksheetApi.get(worksheetId)
     if (worksheet.latestGenerationId === null) throw error
     const { data: running } = await worksheetApi.getGeneration(worksheetId, worksheet.latestGenerationId, signal)
-    await waitForGeneration(worksheetId, running, signal)
+    await waitForGeneration(worksheetId, running, signal, onProgress)
   }
 }
 
@@ -217,7 +216,7 @@ const liveService: ReviewService = {
     const blob = await (await fetch(SAMPLE_WORKSHEET_URL)).blob()
     return uploadToServer(new File([blob], SAMPLE_FILE_NAME, { type: blob.type || 'image/jpeg' }))
   },
-  generateReview: async ({ worksheet, settings, signal }) => {
+  generateReview: async ({ worksheet, settings, signal, onProgress }) => {
     signal?.throwIfAborted()
     if (worksheet.completedReview) return worksheet.completedReview
     assertSettings(settings)
@@ -225,14 +224,14 @@ const liveService: ReviewService = {
     // 첨삭이 끝난(READY) 학습지는 결과만 다시 열고, 생성 중(PROCESSING)이면 설정을 바꿀 수 없으므로 기다리기만 한다.
     if (worksheet.status !== 'READY') {
       if (worksheet.status !== 'PROCESSING') await saveSettings(worksheetId, settings, worksheet.settingsEtag)
-      await startAndWait(worksheetId, signal)
+      await startAndWait(worksheetId, signal, onProgress)
     }
     return loadReview(worksheetId, signal)
   },
-  retryReview: async ({ worksheet, generationId, signal }) => {
+  retryReview: async ({ worksheet, generationId, signal, onProgress }) => {
     const worksheetId = requireId(worksheet.worksheetId)
     const { data } = await worksheetApi.retryGeneration(worksheetId, generationId, crypto.randomUUID())
-    await waitForGeneration(worksheetId, data, signal)
+    await waitForGeneration(worksheetId, data, signal, onProgress)
     return loadReview(worksheetId, signal)
   },
   updateSuggestion: async (worksheetId, item, content) => {

@@ -90,8 +90,8 @@ export function MobileUploadPage() {
       <MobileUploadFrame>
         <section className="rounded-[22px] border border-line bg-white px-6 py-10 text-center shadow-card" aria-live="polite">
           <div className="mx-auto mb-6 grid size-16 place-items-center rounded-[20px] bg-[#eef0ff] text-[#5d6de4]"><CameraIcon className="size-8" /></div>
-          <h1 className="text-[22px] tracking-[-0.7px]">{connection.status === 'error' ? 'QR 연결을 확인해주세요' : connection.status === 'waiting' ? '노트북에서 허용해주세요' : '노트북과 연결하고 있어요'}</h1>
-          <p className="mt-4 text-[14px] leading-relaxed text-[#8a8fa0]" role={connection.status === 'error' ? 'alert' : 'status'}>{connection.status === 'error' ? connection.message : connection.status === 'waiting' ? '노트북 화면에 표시된 로그인 요청을 허용하면 사진을 올릴 수 있어요.' : '잠시만 기다려주세요.'}</p>
+          <h1 className="text-[22px] tracking-[-0.7px]">{connection.status === 'error' ? 'QR 연결을 확인해주세요' : connection.status === 'waiting' ? '데스크탑에서 허용해주세요' : '데스크탑과 연결하고 있어요'}</h1>
+          <p className="mt-4 text-[14px] leading-relaxed text-[#8a8fa0]" role={connection.status === 'error' ? 'alert' : 'status'}>{connection.status === 'error' ? connection.message : connection.status === 'waiting' ? '데스크탑 화면에 표시된 로그인 요청을 허용하면 사진을 올릴 수 있어요.' : '잠시만 기다려주세요.'}</p>
         </section>
       </MobileUploadFrame>
     )
@@ -103,9 +103,9 @@ export function MobileUploadPage() {
         <section className="rounded-[22px] border border-line bg-white px-6 py-10 text-center shadow-card" role="status">
           <div aria-hidden="true" className="mx-auto mb-6 grid size-16 place-items-center rounded-full bg-[#eefaf5] text-[30px] text-[#18ae84]">✓</div>
           <h1 className="text-[24px] tracking-[-0.9px]">사진을 올렸어요</h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-[#8a8fa0]">노트북에서 사진을 확인하고<br />첨삭을 시작해주세요.</p>
+          <p className="mt-3 text-[14px] leading-relaxed text-[#8a8fa0]">데스크탑에서 사진을 확인하고<br />첨삭을 시작해주세요.</p>
           {photo && <img alt="업로드한 학습지 사진" className="mt-6 h-[220px] w-full rounded-xl bg-canvas object-contain p-3" src={photo.url} />}
-          <p className="mt-6 text-[12px] leading-relaxed text-[#9b9fac]">다른 사진을 올리려면<br />노트북에서 새 QR을 생성해 스캔해주세요.</p>
+          <p className="mt-6 text-[12px] leading-relaxed text-[#9b9fac]">다른 사진을 올리려면<br />데스크탑에서 새 QR을 생성해 스캔해주세요.</p>
         </section>
       </MobileUploadFrame>
     )
@@ -163,7 +163,7 @@ export function MobileUploadPage() {
 
           <div className="mt-6 border-t border-line pt-5">
             <Button className="flex h-[52px] w-full items-center justify-center gap-2 text-[14px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none" disabled={!photo || uploading || requiresNewQr || now < retryAt} onClick={() => void upload()} variant="primary"><UploadIcon className="size-5 fill-none stroke-current stroke-[1.7]" />{uploading ? '사진을 올리고 있어요…' : '사진 업로드'}</Button>
-            <p aria-live="polite" className="mt-3 text-center text-[12px] leading-relaxed text-[#8a8fa0]">{requiresNewQr ? '노트북에서 새 QR을 생성해 다시 스캔해주세요.' : now < retryAt ? `${Math.max(1, Math.ceil((retryAt - now) / 1000))}초 후 다시 시도해주세요.` : uploading ? '완료될 때까지 이 화면을 유지해주세요.' : photo ? '사진을 올리면 노트북에서 확인할 수 있어요.' : '업로드할 학습지 사진 한 장을 선택해주세요.'}</p>
+            <p aria-live="polite" className="mt-3 text-center text-[12px] leading-relaxed text-[#8a8fa0]">{requiresNewQr ? '데스크탑에서 새 QR을 생성해 다시 스캔해주세요.' : now < retryAt ? `${Math.max(1, Math.ceil((retryAt - now) / 1000))}초 후 다시 시도해주세요.` : uploading ? '완료될 때까지 이 화면을 유지해주세요.' : photo ? '사진을 올리면 데스크탑에서 확인할 수 있어요.' : '업로드할 학습지 사진 한 장을 선택해주세요.'}</p>
           </div>
         </section>
     </MobileUploadFrame>
@@ -182,7 +182,7 @@ function MobileUploadFrame({ children }: { children: ReactNode }) {
           <span className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-bold text-[#70768a]">사진 업로드</span>
         </header>
         {children}
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-[#9b9fac]">첨삭은 노트북 화면에서 시작할 수 있어요.</p>
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-[#9b9fac]">첨삭은 데스크탑 화면에서 시작할 수 있어요.</p>
       </div>
     </main>
   )
