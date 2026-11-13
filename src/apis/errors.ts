@@ -34,6 +34,14 @@ export const API_ERROR_MESSAGES = {
   INVITATION_003: '이미 사용되었거나 취소된 초대 링크입니다.',
   INVITATION_004: '초대받은 이메일과 가입 요청 이메일이 일치하지 않습니다.',
   AUTH_009: '이미 가입된 이메일입니다.',
+  QR_001: '유효하지 않은 QR이에요. 노트북에서 새 QR을 생성해주세요.',
+  QR_002: 'QR이 만료되었어요. 노트북에서 새 QR을 생성해주세요.',
+  QR_003: '이미 사용되었거나 처리할 수 없는 QR이에요. 새 QR을 생성해주세요.',
+  QR_004: '이 QR로 업로드할 수 있는 작업이 아니에요.',
+  QR_005: '다른 계정으로 로그인되어 있어요. 노트북에서 로그인을 허용해주세요.',
+  QR_006: '이미 사진을 올린 QR이에요. 노트북에서 새 QR을 생성해주세요.',
+  QR_007: '사진은 한 장만 올릴 수 있어요.',
+  COMMON_429: '요청이 많아요. 잠시 후 다시 시도해주세요.',
 } as const
 
 export type ApiErrorCode = keyof typeof API_ERROR_MESSAGES
@@ -53,6 +61,7 @@ export class ApiError extends Error {
   readonly rawCode: string | null
   /** 입력값 검증 실패의 필드별 사유. 예) { password: '비밀번호는 최소 8자 이상이어야 합니다.' } */
   readonly fieldErrors: Record<string, string>
+  readonly retryAfterMs: number | null
 
   constructor({
     status,
@@ -60,12 +69,14 @@ export class ApiError extends Error {
     message,
     rawCode = null,
     fieldErrors = {},
+    retryAfterMs = null,
   }: {
     status: number
     code: ApiErrorCode | ClientErrorCode
     message?: string
     rawCode?: string | null
     fieldErrors?: Record<string, string>
+    retryAfterMs?: number | null
   }) {
     super(message ?? getDefaultMessage(code))
     this.name = 'ApiError'
@@ -73,6 +84,7 @@ export class ApiError extends Error {
     this.code = code
     this.rawCode = rawCode
     this.fieldErrors = fieldErrors
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -120,7 +132,7 @@ function toFieldErrors(details: string[]) {
   return fieldErrors
 }
 
-export function toApiError(status: number, body: unknown) {
+export function toApiError(status: number, body: unknown, retryAfter: string | null = null) {
   const { code, message, details } = readErrorBody(body)
   const knownCode = isApiErrorCode(code) ? code : null
   return new ApiError({
@@ -130,6 +142,9 @@ export function toApiError(status: number, body: unknown) {
     message: details[0] ? detailMessage(details[0]) : typeof message === 'string' && message ? message : undefined,
     rawCode: typeof code === 'string' && !knownCode ? code : null,
     fieldErrors: toFieldErrors(details),
+    retryAfterMs: retryAfter !== null && Number.isFinite(Number(retryAfter))
+      ? Math.max(0, Number(retryAfter) * 1000)
+      : null,
   })
 }
 

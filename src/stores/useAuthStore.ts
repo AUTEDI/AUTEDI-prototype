@@ -4,7 +4,7 @@ import { setAuthLostHandler } from '../apis/client'
 import { USE_LIVE_API } from '../apis/config'
 import { getErrorMessage } from '../apis/errors'
 import { tokenStorage } from '../apis/tokenStorage'
-import type { AuthUserDto } from '../apis/types'
+import type { AuthUserDto, LoginResponse } from '../apis/types'
 
 export type AuthUser = Pick<AuthUserDto, 'name' | 'email' | 'role' | 'academyName' | 'subscriptionStatus'> & {
   /** 프로필 동그라미에 보여줄 글자. 없으면 이름 첫 글자를 쓴다. */
@@ -20,6 +20,7 @@ type AuthState = {
   restore: () => Promise<void>
   /** 성공하면 null, 실패하면 화면에 보여줄 메시지를 돌려준다. */
   login: (email: string, password: string) => Promise<string | null>
+  acceptLogin: (response: LoginResponse) => void
   logout: () => Promise<void>
 }
 
@@ -60,6 +61,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       return getErrorMessage(error, '로그인하지 못했어요. 잠시 후 다시 시도해주세요.')
     }
+  },
+  acceptLogin: (response) => {
+    tokenStorage.set(response)
+    set({ status: 'authenticated', user: response.user })
   },
   logout: async () => {
     const refreshToken = tokenStorage.get()?.refreshToken

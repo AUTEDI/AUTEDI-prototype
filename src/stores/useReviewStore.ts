@@ -51,6 +51,7 @@ type ReviewState = {
 
   startReview: (uploadId: string, data: ReviewData) => void
   selectReview: (uploadId: string) => boolean
+  forgetReview: (uploadId: string) => void
   selectFeedback: (id: string) => void
   showAiList: () => void
   showManualEditor: () => void
@@ -209,6 +210,11 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
       return true
     },
 
+    forgetReview: (uploadId) => set((state) => {
+      const reviewsByUploadId = { ...state.reviewsByUploadId }
+      delete reviewsByUploadId[uploadId]
+      return { reviewsByUploadId, ...(state.activeUploadId === uploadId ? { activeUploadId: null } : {}) }
+    }),
     selectFeedback: (id) => {
       if (get().dismissedIds.includes(id)) return
       if (get().toolMode === 'annotate') get().setToolMode('idle')
