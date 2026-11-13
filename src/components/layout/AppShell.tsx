@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 import { useAppStore } from '../../stores/useAppStore'
+import { useDesktopEvents } from '../../hooks/useDesktopEvents'
 import { cn } from '../../utils/cn'
 import { Toast } from '../common/Toast'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { PhoneUploadModal } from '../review-flow/PhoneUploadModal'
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useDesktopEvents()
   const collapsed = useAppStore((state) => state.sidebarCollapsed)
 
   return (
@@ -21,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <Toast />
+      <PhoneUploadModal />
     </div>
   )
 }

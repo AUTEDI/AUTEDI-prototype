@@ -2,40 +2,44 @@ import { useEffect, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { MobileUploadPage } from './pages/MobileUploadPage'
 import { ReviewPage } from './pages/ReviewPage'
 import { SignupPage } from './pages/SignupPage'
 import { useAppStore } from './stores/useAppStore'
 import { useAuthStore } from './stores/useAuthStore'
 
-/** 초대 메일의 링크(/signup?token=...)로 들어온 경우 */
-const isSignupPath = () => window.location.pathname.replace(/\/+$/, '') === '/signup'
+const readPathname = () => window.location.pathname.replace(/\/+$/, '') || '/'
 
 function App() {
   const page = useAppStore((state) => state.page)
   const authStatus = useAuthStore((state) => state.status)
   const currentEmail = useAuthStore((state) => state.user?.email ?? null)
   const restore = useAuthStore((state) => state.restore)
-  const [signup, setSignup] = useState(isSignupPath)
+  const [pathname, setPathname] = useState(readPathname)
   const [signedUpEmail, setSignedUpEmail] = useState<string | null>(null)
 
   useEffect(() => {
+    // 모바일 업로드 UI는 QR 인증 연동 전에도 독립적으로 확인할 수 있다.
+    if (pathname === '/qr-login') return
     void restore()
-  }, [restore])
+  }, [pathname, restore])
 
   useEffect(() => {
-    const syncPath = () => setSignup(isSignupPath())
+    const syncPath = () => setPathname(readPathname())
     window.addEventListener('popstate', syncPath)
     return () => window.removeEventListener('popstate', syncPath)
   }, [])
 
-  if (signup) {
+  if (pathname === '/qr-login') return <MobileUploadPage />
+
+  if (pathname === '/signup') {
     return (
       <SignupPage
         onGoLogin={(email) => {
           // 1회용 토큰이 주소에 남지 않도록 기록을 바꾼다.
           window.history.replaceState(null, '', '/')
           setSignedUpEmail(email ?? null)
-          setSignup(false)
+          setPathname('/')
         }}
       />
     )

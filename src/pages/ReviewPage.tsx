@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getErrorMessage } from '../apis/errors'
-import { GenerationFailedError, reviewService } from '../apis/reviewService'
+import { GenerationFailedError, reviewService, type GenerationProgress } from '../apis/reviewService'
 import { GenerationStep } from '../components/review-flow/GenerationStep'
 import { SessionSettingsStep } from '../components/review-flow/SessionSettingsStep'
 import { UploadStep } from '../components/review-flow/UploadStep'
@@ -20,6 +20,7 @@ export function ReviewPage() {
   const activeReviewId = useReviewStore((state) => state.activeUploadId)
   // 화면을 벗어나면 진행 중인 생성 확인(폴링)을 멈춘다.
   const generation = useRef<AbortController | null>(null)
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null)
 
   useEffect(() => () => generation.current?.abort(), [])
 
@@ -44,18 +45,23 @@ export function ReviewPage() {
       showToast('첨삭 영역을 한 가지 이상 선택해주세요')
       return
     }
-    await generate(upload, (signal) => reviewService.generateReview({ worksheet: upload.worksheet, settings, signal }))
+    await generate(upload, (signal, onProgress) => reviewService.generateReview({ worksheet: upload.worksheet, settings, signal, onProgress }))
   }
 
   /** 생성 화면을 띄우고 결과가 나오면 검토 화면으로 넘어간다. 재시도할 수 있는 실패면 토스트에 버튼을 단다. */
-  const generate = async (upload: UploadedFile, request: (signal: AbortSignal) => Promise<ReviewData>) => {
+  const generate = async (upload: UploadedFile, request: (signal: AbortSignal, onProgress: (progress: GenerationProgress) => void) => Promise<ReviewData>) => {
     generation.current?.abort()
     const controller = new AbortController()
     generation.current = controller
     const previousStep = useAppStore.getState().step
+    setGenerationProgress(null)
     setStep('generation')
     try {
-      const review = await request(controller.signal)
+      const review = await request(controller.signal, (progress) => {
+        if (!controller.signal.aborted && generation.current === controller && useAppStore.getState().step === 'generation') {
+          setGenerationProgress(progress)
+        }
+      })
       if (controller.signal.aborted || useAppStore.getState().step !== 'generation') return
       markWorksheetReady(upload.id)
       startReview(upload.id, review)
@@ -66,8 +72,8 @@ export function ReviewPage() {
       const retry = error instanceof GenerationFailedError && error.retryable
         ? {
             label: '다시 시도',
-            onClick: () => void generate(upload, (signal) =>
-              reviewService.retryReview({ worksheet: upload.worksheet, generationId: error.generationId, signal })),
+            onClick: () => void generate(upload, (signal, onProgress) =>
+              reviewService.retryReview({ worksheet: upload.worksheet, generationId: error.generationId, signal, onProgress })),
           }
         : undefined
       showToast(getErrorMessage(error, '첨삭을 생성하지 못했어요. 잠시 후 다시 시도해주세요.'), retry)
@@ -92,7 +98,7 @@ export function ReviewPage() {
       {step === 'settings' && (
         <SessionSettingsStep onStart={() => void runGeneration(useAppStore.getState().sessionSettings)} />
       )}
-      {step === 'generation' && <GenerationStep />}
+      {step === 'generation' && <GenerationStep generation={generationProgress} />}
       {step === 'review' && (
         <ReviewStep
           key={activeReviewId}

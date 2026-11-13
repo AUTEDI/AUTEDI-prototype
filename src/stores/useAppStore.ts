@@ -42,6 +42,7 @@ type AppState = {
   removeFile: (id: string) => void
   /** 첨삭이 끝난 학습지는 다시 생성하지 않고 결과만 연다. */
   markWorksheetReady: (id: string) => void
+  receiveWorksheet: (file: Omit<UploadedFile, 'id'>) => string
 }
 
 /** AI 첨삭은 사진(JPG·PNG)만 지원한다. PDF는 서버가 페이지 이미지로 바꾸지 않는다. */
@@ -186,5 +187,15 @@ export const useAppStore = create<AppState>()((set, get) => {
         ? { ...file, worksheet: { ...file.worksheet, status: 'READY' } }
         : file),
     })),
+    receiveWorksheet: (file) => {
+      const existing = get().uploads.find((upload) => upload.worksheet.worksheetId === file.worksheet.worksheetId)
+      const id = existing?.id ?? crypto.randomUUID()
+      const next = { ...file, id }
+      set((state) => ({
+        uploads: existing ? state.uploads.map((upload) => upload.id === id ? next : upload) : [...state.uploads, next],
+        activeUploadId: id,
+      }))
+      return id
+    },
   }
 })

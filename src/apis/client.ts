@@ -104,20 +104,30 @@ function refreshTokens(): Promise<boolean> {
   return refreshing
 }
 
+export function clearAuthentication() {
+  tokenStorage.clear()
+  onAuthLost?.()
+}
+
+/** REST와 SSE가 같은 재발급 요청을 공유한다. */
+export async function refreshAccessToken(): Promise<boolean> {
+  const refreshed = await refreshTokens()
+  if (!refreshed) clearAuthentication()
+  return refreshed
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
   let response = await send(path, options)
 
   // Access Token이 만료되면 재발급 후 한 번만 다시 보낸다.
   if (response.status === 401 && !options.anonymous) {
-    if (await refreshTokens()) {
+    if (await refreshAccessToken()) {
       response = await send(path, options)
-    } else {
-      tokenStorage.clear()
-      onAuthLost?.()
+      if (response.status === 401) clearAuthentication()
     }
   }
 
-  if (!response.ok) throw toApiError(response.status, await readBody(response))
+  if (!response.ok) throw toApiError(response.status, await readBody(response), response.headers.get('Retry-After'))
   const data = options.responseType === 'blob' ? await response.blob() : unwrap(await readBody(response))
   return { data: data as T, etag: response.headers.get('ETag'), status: response.status }
 }

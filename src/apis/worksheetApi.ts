@@ -6,12 +6,17 @@ const worksheet = (worksheetId: number) => `/worksheets/${worksheetId}`
 
 /** API 명세서 v1의 학습지·생성·첨삭·코멘트 엔드포인트 */
 export const worksheetApi = {
-  upload: (file: File) => {
+  upload: (file: File, signal?: AbortSignal) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post<WorksheetUploadDto>('/worksheets', form)
+    return api.post<WorksheetUploadDto>('/worksheets', form, { signal })
   },
-  get: (worksheetId: number) => api.get<WorksheetDto>(worksheet(worksheetId)),
+  get: (worksheetId: number, signal?: AbortSignal) => api.get<WorksheetDto>(worksheet(worksheetId), { signal }),
+  replaceFile: (worksheetId: number, file: File, ifMatch: string | null, signal?: AbortSignal) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.put<WorksheetDto>(`${worksheet(worksheetId)}/file`, form, { ifMatch, signal })
+  },
 
   // 노션 예시는 settings 키로 바뀌어 있지만 실제 서버는 areas 키를 검증한다.
   saveSettings: (worksheetId: number, areas: AreaSetting[], ifMatch: string | null) =>
