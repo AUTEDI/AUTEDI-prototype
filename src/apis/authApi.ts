@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AuthUserDto, InvitationValidateDto, LoginResponse, SignupRequest, SignupResponseDto } from './types'
+import type { AuthUserDto, InvitationDto, InvitationValidateDto, LoginResponse, SignupRequest, SignupResponseDto } from './types'
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -14,4 +14,7 @@ export const authApi = {
       signal,
     }),
   signup: (body: SignupRequest) => api.post<SignupResponseDto>('/auth/signup', body, { anonymous: true }),
+
+  /** 원장 전용. 선생님 이메일로 24시간 유효한 초대 메일을 보낸다. */
+  sendInvitation: (email: string) => api.post<InvitationDto>('/invitations', { email }),
 }

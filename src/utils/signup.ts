@@ -20,6 +20,22 @@ export function validateSignup({ name, password }: { name: string; password: str
   return errors
 }
 
+/** 초대할 선생님 이메일을 검사한다. 문제가 없으면 null이다. */
+export function validateInviteEmail(email: string) {
+  const trimmed = email.trim()
+  if (!trimmed) return '이메일을 입력해주세요.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return '올바른 이메일 형식이 아니에요.'
+  return null
+}
+
+/** 초대 만료 일시를 "2026년 11월 13일 오후 6:00" 형식으로 바꾼다. 값이 없거나 잘못되면 null이다. */
+export function formatExpiresAt(value: string | null | undefined) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
+}
+
 /** 폼 대신 안내 화면을 보여줘야 하는 초대 링크 상태 */
 export type InvitationProblem = 'missing' | 'invalid' | 'expired' | 'used' | 'registered'
 

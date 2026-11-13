@@ -7,6 +7,7 @@ import { AUTH_INPUT, AUTH_LABEL, AuthAlert, AuthLayout } from '../components/aut
 import { Button } from '../components/common/Button'
 import { cn } from '../utils/cn'
 import {
+  formatExpiresAt,
   PASSWORD_MIN_LENGTH,
   readInvitationToken,
   toInvitationProblem,
@@ -48,13 +49,6 @@ const PROBLEM_COPY: Record<InvitationProblem, { title: string; body: string; log
     body: '초대받은 이메일로 로그인해주세요.',
     login: true,
   },
-}
-
-function formatExpiresAt(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
 }
 
 type SignupPageProps = {

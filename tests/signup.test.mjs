@@ -121,3 +121,23 @@ test('주소에 토큰이 없거나 비어 있으면 잘못된 접근으로 본�
   assert.equal(readInvitationToken('?other=1'), null)
   assert.equal(readInvitationToken('?token=abc123'), 'abc123')
 })
+
+test('선생님 초대는 로그인 토큰을 붙여 이메일만 보낸다', async () => {
+  const invitation = { invitationId: 12, email: 'teacher@example.com', status: 'PENDING', expiresAt: '2026-11-14T18:00:00' }
+  reply = () => Response.json(envelope(invitation))
+  const { data } = await authApi.sendInvitation('teacher@example.com')
+  assert.deepEqual(data, invitation)
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(calls[0].path, '/api/v1/invitations')
+  assert.deepEqual(JSON.parse(calls[0].body), { email: 'teacher@example.com' })
+  assert.equal(calls[0].headers.get('Authorization'), 'Bearer director-access')
+})
+
+test('초대 이메일은 비었거나 형식이 틀리면 막는다', () => {
+  const { validateInviteEmail } = signup
+  assert.equal(validateInviteEmail(' teacher@example.com '), null)
+  assert.ok(validateInviteEmail('   '))
+  assert.ok(validateInviteEmail('teacher'))
+  assert.ok(validateInviteEmail('teacher@example'))
+  assert.ok(validateInviteEmail('a b@example.com'))
+})

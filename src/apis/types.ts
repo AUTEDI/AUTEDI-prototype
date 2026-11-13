@@ -178,6 +178,14 @@ export type InvitationValidateDto = {
   expiresAt: string | null
 }
 
+/** POST /invitations 응답. 같은 이메일의 이전 대기 초대는 서버가 무효화한다. */
+export type InvitationDto = {
+  invitationId: number
+  email: string
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED' | (string & {})
+  expiresAt: string | null
+}
+
 /** POST /auth/signup 요청. email은 초대 검증 응답의 값을 그대로 보낸다. */
 export type SignupRequest = {
   token: string

@@ -41,6 +41,7 @@ VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
 | --- | --- |
 | 로그인·로그아웃·새로고침 후 복원 | `POST /auth/login`, `POST /auth/logout`, `GET /users/me` |
 | 초대 링크(`/signup?token=`)로 회원가입 | `GET /invitations/validate?token=` → `POST /auth/signup` (로그인 없이 호출, 성공 시 로그인 화면으로 이동) |
+| 선생님 초대 메일 발송 (원장 계정만 사이드바에 메뉴 표시) | `POST /invitations` (`{ email }`, 메일은 서버가 발송) |
 | 토큰 만료 시 자동 재발급 후 재요청 | `POST /auth/refresh` |
 | 학습지 업로드 | `POST /worksheets` |
 | 첨삭 시작 | `PUT /worksheets/{id}/settings` → `POST .../generations` → `GET .../generations/{genId}` 반복 |

@@ -1,10 +1,12 @@
-import type { ComponentType, SVGProps } from 'react'
+import { useState, type ComponentType, type SVGProps } from 'react'
+import { createPortal } from 'react-dom'
 import { USE_LIVE_API } from '../../apis/config'
 import autediIcon from '../../images/pavicon.ico'
 import { useAppStore, type Page } from '../../stores/useAppStore'
 import { useAuthStore } from '../../stores/useAuthStore'
 import { cn } from '../../utils/cn'
-import { CalendarIcon, HomeIcon, PenIcon, SidebarToggleIcon, StudentIcon } from './icons'
+import { InviteTeacherModal } from '../invite/InviteTeacherModal'
+import { CalendarIcon, HomeIcon, MailIcon, PenIcon, SidebarToggleIcon, StudentIcon } from './icons'
 
 type NavItem = {
   label: string
@@ -32,6 +34,9 @@ export function Sidebar() {
   const showToast = useAppStore((state) => state.showToast)
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const [inviting, setInviting] = useState(false)
+  // 선생님 초대는 원장 계정에만 보인다. 예시 모드에는 초대 API가 없다.
+  const canInvite = USE_LIVE_API && user?.role === 'DIRECTOR'
 
   // 접힌 상태이거나 1050px 이하에서는 아이콘만 남긴다.
   const hideLabel = collapsed ? 'hidden' : 'max-md:hidden'
@@ -118,6 +123,23 @@ export function Sidebar() {
             </button>
           )
         })}
+        {canInvite && (
+          <button
+            aria-haspopup="dialog"
+            aria-label="선생님 초대"
+            className={cn(
+              'relative flex items-center gap-3 rounded-xl text-left text-[#9299b3] hover:text-white',
+              collapsed ? 'justify-center p-3' : 'px-[13px] py-3 max-md:justify-center sm:max-md:p-3',
+              'max-sm:p-[9px]',
+            )}
+            onClick={() => setInviting(true)}
+            title="선생님 초대"
+            type="button"
+          >
+            <MailIcon className="size-5 shrink-0 fill-none stroke-current stroke-[1.8]" />
+            <span className={cn('text-[13px] font-bold', hideLabel)}>선생님 초대</span>
+          </button>
+        )}
       </nav>
       <div className={cn('mt-auto max-sm:hidden', collapsed && 'grid justify-items-center')}>
         <button
@@ -151,6 +173,8 @@ export function Sidebar() {
           </button>
         </div>
       </div>
+      {/* 사이드바의 쌓임 순서에 갇히지 않도록 body에 띄운다. */}
+      {inviting && createPortal(<InviteTeacherModal onClose={() => setInviting(false)} />, document.body)}
     </aside>
   )
 }

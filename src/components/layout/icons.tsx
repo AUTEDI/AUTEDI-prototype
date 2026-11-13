@@ -51,6 +51,15 @@ export function StudentIcon(props: IconProps) {
   )
 }
 
+export function MailIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect height="14" rx="2.5" width="18" x="3" y="5" />
+      <path d="m4 7 8 6 8-6" />
+    </Icon>
+  )
+}
+
 export function UploadIcon(props: IconProps) {
   return (
     <Icon {...props}>
