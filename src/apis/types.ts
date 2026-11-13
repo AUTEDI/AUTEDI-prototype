@@ -127,7 +127,10 @@ export type HighlightType = 'HIGHLIGHT' | 'UNDERLINE' | 'STRIKETHROUGH' | 'ARROW
 export type CommentColor = 'RED' | 'BLUE' | 'YELLOW' | 'GREEN'
 
 export type CommentDto = {
-  id: number
+  /** 생성 응답에서 비어 오는 경우가 있어 null도 받는다. */
+  id: number | null
+  /** 서버가 id 대신 이 이름으로 보낼 때를 대비한다. */
+  commentId?: number | null
   etag: string
   source: 'TEACHER' | (string & {})
   pageId: number

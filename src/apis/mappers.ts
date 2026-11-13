@@ -138,22 +138,29 @@ function fromCommentColor(color: CommentColor | null | undefined): AnnotationCol
   return (Object.entries(COMMENT_COLOR_BY_COLOR).find(([, value]) => value === color)?.[0] as AnnotationColor) ?? 'blue'
 }
 
+/** 코멘트의 서버 ID. 비어 있으면 null이다. "null" 같은 문자열로 요청 주소를 만들지 않기 위해 쓴다. */
+export function commentServerId(comment: Pick<CommentDto, 'id' | 'commentId'>): string | null {
+  const id = comment.id ?? comment.commentId
+  return typeof id === 'number' || (typeof id === 'string' && id !== '') ? String(id) : null
+}
+
 export function toTeacherComments(comments: CommentDto[], pageId: number): TeacherComment[] {
   return comments
     .filter((comment) => comment.pageId === pageId)
-    .flatMap((comment): TeacherComment[] => {
+    .flatMap((comment, index): TeacherComment[] => {
       // 코멘트 자체의 pageId로 페이지가 확인되므로 영역의 pageId는 없어도 된다.
       const region = comment.regions.find((item) => item.pageId === pageId)
         ?? comment.regions.find((item) => item.pageId == null)
       if (!region) return []
+      const serverId = commentServerId(comment)
       return [{
-        id: `server-${comment.id}`,
+        id: serverId ? `server-${serverId}` : `server-missing-${index}`,
         text: comment.content,
         style: STYLE_BY_HIGHLIGHT[comment.highlightType] ?? 'underline',
         color: fromCommentColor(comment.color),
         box: { ...regionToBox(region), reverse: false },
         note: null,
-        serverId: String(comment.id),
+        serverId,
         etag: comment.etag,
       }]
     })

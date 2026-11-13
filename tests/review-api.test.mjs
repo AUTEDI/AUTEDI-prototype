@@ -298,3 +298,16 @@ test('취소된 요청은 완료 결과가 있어도 열지 않는다', async ()
   await assert.rejects(service.generateReview({ worksheet: uploaded, settings, signal: AbortSignal.abort() }), { name: 'AbortError' })
   assert.equal(calls.length, uploadCalls)
 })
+
+test('교사 코멘트 ID가 비어 있으면 "null"로 삭제 요청을 보내지 않는다', async () => {
+  const base = { pageId: 16, content: '코멘트', highlightType: 'UNDERLINE', regions: [{ x: 0.2, y: 0.3, width: 0.15, height: 0.04 }], etag: null }
+  assert.equal(mappers.commentServerId({ id: 7 }), '7')
+  assert.equal(mappers.commentServerId({ id: null, commentId: 8 }), '8')
+  assert.equal(mappers.commentServerId({ id: null }), null)
+  assert.equal(mappers.commentServerId({}), null)
+  const [missing] = mappers.toTeacherComments([{ ...base, id: null }], 16)
+  assert.equal(missing.serverId, null)
+  const before = calls.length
+  await assert.rejects(service.deleteComment(91, missing), /새로고침/)
+  assert.equal(calls.length, before)
+})

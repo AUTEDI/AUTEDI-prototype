@@ -2,7 +2,7 @@ import { SAMPLE_FILE_NAME, SAMPLE_WORKSHEET_URL, createSampleFeedback } from '..
 import type { AiFeedback, Box, FeedbackSetting, ReviewData, TeacherComment } from '../types/review'
 import { USE_LIVE_API } from './config'
 import { ApiError, isApiError } from './errors'
-import { boxToRegion, toAreaSettings, toCommentColor, toHighlightType, toReviewData } from './mappers'
+import { boxToRegion, commentServerId, toAreaSettings, toCommentColor, toHighlightType, toReviewData } from './mappers'
 import type { GenerationDto, WorksheetPageDto, WorksheetStatus } from './types'
 import { worksheetApi } from './worksheetApi'
 
@@ -243,10 +243,17 @@ const liveService: ReviewService = {
       color: toCommentColor(comment.color),
       content: comment.text,
     })
-    return { serverId: String(data.id), etag: data.etag ?? etag }
+    return { serverId: commentServerId(data), etag: data.etag ?? etag }
   },
   deleteComment: async (worksheetId, comment) => {
-    if (comment.serverId === null) return
+    // 저장 응답에 ID가 없었던 코멘트는 서버에서 지울 수 없다. 새로고침하면 서버의 ID로 다시 불러온다.
+    if (comment.serverId === null) {
+      throw new ApiError({
+        status: 0,
+        code: 'UNKNOWN_ERROR',
+        message: '코멘트 정보를 아직 받지 못했어요. 새로고침한 뒤 다시 삭제해주세요.',
+      })
+    }
     await worksheetApi.deleteComment(requireId(worksheetId), comment.serverId, comment.etag)
   },
 }
