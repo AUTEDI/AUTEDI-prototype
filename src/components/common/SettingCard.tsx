@@ -1,8 +1,6 @@
-import { LEVEL_DESCRIPTIONS } from '../../constants/settings'
-import type { FeedbackLevel, FeedbackSetting } from '../../types/review'
+import type { FeedbackSetting } from '../../types/review'
 import { cn } from '../../utils/cn'
-
-const LEVELS: FeedbackLevel[] = ['Standard', 'Advanced']
+import { LevelToggle } from './LevelToggle'
 
 type SettingCardProps = {
   setting: FeedbackSetting
@@ -43,25 +41,11 @@ export function SettingCard({ setting, compact = false, onChange }: SettingCardP
         </div>
       </div>
       <p className="my-3 text-[8px] leading-normal text-[#7f8496]">{setting.desc}</p>
-      <div className="grid grid-cols-2 rounded-lg bg-[#f1f2f6] p-[3px]">
-        {LEVELS.map((level) => (
-          <button
-            aria-pressed={setting.level === level}
-            className={cn(
-              'grid gap-0.5 rounded-md p-[7px] text-left',
-              setting.level === level
-                ? 'bg-white text-[#4251c6] shadow-[0_2px_8px_rgba(30,37,75,0.08)]'
-                : 'text-[#7c8191]',
-            )}
-            key={level}
-            onClick={() => onChange({ ...setting, selected: true, level })}
-            type="button"
-          >
-            <b className="text-[8px]">{level}</b>
-            <small className="text-[6px]">{LEVEL_DESCRIPTIONS[level]}</small>
-          </button>
-        ))}
-      </div>
+      <LevelToggle
+        label={setting.name}
+        onChange={(level) => onChange({ ...setting, selected: true, level })}
+        value={setting.level}
+      />
     </article>
   )
 }
