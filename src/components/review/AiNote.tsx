@@ -6,6 +6,7 @@ import type { AiFeedback } from '../../types/review'
 import { aiNoteAnchor as noteAnchor, clampAiNotePosition, placeAiNote, placeAiNoteAbove, type Point, type Rect, type Size } from '../../utils/annotation'
 import { cn } from '../../utils/cn'
 import { getRect, useCanvasRefs } from './canvasRefs'
+import { NoteSizeControl } from './NoteSizeControl'
 
 type DragState = { dx: number; dy: number; x: number; y: number; moved: boolean }
 
@@ -22,9 +23,11 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
   const { photoRef, boardRef } = useCanvasRefs()
   const selectFeedback = useReviewStore((state) => state.selectFeedback)
   const moveAiNote = useReviewStore((state) => state.moveAiNote)
+  const setAiNoteScale = useReviewStore((state) => state.setAiNoteScale)
+  const active = useReviewStore((state) => state.activeFeedbackId === item.id)
   const showToast = useAppStore((state) => state.showToast)
   const suppressClick = useRef(false)
-  const noteRef = useRef<HTMLButtonElement>(null)
+  const noteRef = useRef<HTMLDivElement>(null)
   const [noteSize, setNoteSize] = useState<Size | null>(null)
 
   useLayoutEffect(() => {
@@ -81,7 +84,9 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
     : onText && item.mark
       ? autoPosition ?? placeAiNoteAbove(photo, renderedSize, noteAnchor(item) === 'end' ? (item.extraMarks.at(-1) ?? item.mark) : item.mark, noteAnchor(item))
       : placeAiNote(photo, board, renderedSize, item.notePlacement.side, item.notePlacement.top)
-  const style: CSSProperties = {
+  const scale = item.noteScale ?? 1
+  const style: CSSProperties & { '--note-scale': number } = {
+    '--note-scale': scale,
     left: `${((position.x - photo.x) / photo.width) * 100}%`,
     top: `${((position.y - photo.y) / photo.height) * 100}%`,
     maxWidth: Math.max(0, board.width - 16) / zoom,
@@ -89,33 +94,47 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
     visibility: noteSize ? 'visible' : 'hidden',
   }
 
+  const select = () => {
+    if (suppressClick.current) {
+      suppressClick.current = false
+      return
+    }
+    selectFeedback(item.id)
+  }
+
+  // 글자 크기 조절 버튼을 안에 넣어야 해서 button 대신 role="button"인 div를 쓴다.
   return (
-    <button
+    <div
+      aria-label={`AI 코멘트: ${item.noteText}`}
       className={cn(
-        'absolute z-[8] touch-none overflow-visible text-left font-hand select-none',
+        'absolute z-[8] cursor-pointer touch-none overflow-visible text-left font-hand select-none',
         onText
-          ? 'w-max max-w-[136px] px-[3px] py-0 sm:max-lg:max-w-[106px] max-sm:max-w-[78px]'
-          : 'w-[136px] px-[5px] py-0.5 sm:max-lg:w-[106px] max-sm:w-[78px]',
+          ? 'w-max max-w-[calc(136px*var(--note-scale))] px-[3px] py-0 sm:max-lg:max-w-[calc(106px*var(--note-scale))] max-sm:max-w-[calc(78px*var(--note-scale))]'
+          : 'w-[calc(136px*var(--note-scale))] px-[5px] py-0.5 sm:max-lg:w-[calc(106px*var(--note-scale))] max-sm:w-[calc(78px*var(--note-scale))]',
+        active && 'z-[11] rounded-[3px] outline-1 outline-offset-1 outline-[#8c95e8]/70 outline-dashed',
         item.kind === 'correction' ? 'text-correction-ink' : 'text-improvement-ink',
         dragging && 'cursor-grabbing opacity-82',
         dismissed && 'hidden',
       )}
       onClick={(event) => {
         event.stopPropagation()
-        if (suppressClick.current) {
-          suppressClick.current = false
-          return
-        }
+        select()
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
         selectFeedback(item.id)
       }}
-      style={style}
       ref={noteRef}
-      type="button"
+      role="button"
+      style={style}
+      tabIndex={0}
       {...handlers}
     >
-      <p className="m-0 text-[13px] leading-[1.28] font-semibold tracking-[0.1px] break-words whitespace-pre-line [text-shadow:0_0.35px_0_rgba(18,69,132,0.32)] sm:max-lg:text-[11px] max-sm:text-[8px]">
+      {active && !dismissed && <NoteSizeControl onChange={(next) => setAiNoteScale(item.id, next)} scale={scale} />}
+      <p className="m-0 text-[length:calc(13px*var(--note-scale))] leading-[1.28] font-semibold tracking-[0.1px] break-words whitespace-pre-line [text-shadow:0_0.35px_0_rgba(18,69,132,0.32)] sm:max-lg:text-[length:calc(11px*var(--note-scale))] max-sm:text-[length:calc(8px*var(--note-scale))]">
         {item.noteText}
       </p>
-    </button>
+    </div>
   )
 }

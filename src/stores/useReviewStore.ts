@@ -66,6 +66,10 @@ type ReviewState = {
   /** 옮기거나 크기를 바꾼 AI 표시 위치를 저장한다. */
   saveAiMark: (id: string, message: string) => Promise<void>
   moveAiNote: (id: string, position: { left: number; top: number }) => void
+  setAiNoteScale: (id: string, scale: number) => void
+  setTeacherNoteScale: (id: string, scale: number) => void
+  /** 사진에서 교사 코멘트를 눌러 선택한다(글자 크기 조절 등). */
+  selectTeacherComment: (id: string | null) => void
 
   setToolMode: (mode: ToolMode) => void
   hideGuide: () => void
@@ -312,6 +316,12 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
       }
     }),
     moveAiNote: (id, notePosition) => patchFeedback(id, { notePosition }),
+    setAiNoteScale: (id, noteScale) => patchFeedback(id, { noteScale }),
+    setTeacherNoteScale: (id, noteScale) =>
+      set((state) => ({
+        teacherComments: state.teacherComments.map((comment) => (comment.id === id ? { ...comment, noteScale } : comment)),
+      })),
+    selectTeacherComment: (id) => set({ selectedTeacherId: id }),
 
     setToolMode: (toolMode) => set({ toolMode, guideHidden: false }),
     hideGuide: () => set({ guideHidden: true }),

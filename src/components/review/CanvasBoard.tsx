@@ -120,6 +120,7 @@ export function CanvasBoard() {
         photo,
         selection: { top: photo.top + (comment.box.top / 100) * photo.height },
         occupiedTops,
+        caret: comment.style === 'caret' ? comment.box : undefined,
       })
       notes[comment.id] = note
       occupiedTops.push(note.top)

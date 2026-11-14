@@ -48,3 +48,12 @@ test('겹치지 않으면 모두 기본 자리에 둔다', () => {
   const positions = layoutAiNotesAbove(photo, notes)
   for (const note of notes) assert.deepEqual(positions[note.id], placeAiNoteAbove(photo, size, note.mark, 'center'))
 })
+
+test('삽입 표시 코멘트는 꺾쇠가 열린 쪽인 아래, 꺾쇠 위치 가운데에 놓인다', () => {
+  // 표시 아래쪽 340px → 코멘트 위쪽은 6px 아래인 346px. 앞(BEFORE) 삽입이면 표시 왼쪽 끝(100px)이 가운데
+  const point = placeAiNoteAbove(photo, size, { left: 10, top: 30, width: 10, height: 4 }, 'start')
+  assert.equal(point.y, 346)
+  assert.equal(point.x, 100 - size.width / 2)
+  const after = placeAiNoteAbove(photo, size, { left: 10, top: 30, width: 10, height: 4 }, 'end')
+  assert.equal(after.x, 200 - size.width / 2)
+})

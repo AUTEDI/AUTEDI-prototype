@@ -5,6 +5,7 @@ import { useReviewStore } from '../../stores/useReviewStore'
 import type { AiFeedback, Box } from '../../types/review'
 import { clamp } from '../../utils/annotation'
 import { cn } from '../../utils/cn'
+import { CARET_SHAPE } from './annotationStyles'
 import { getRect, useCanvasRefs } from './canvasRefs'
 import { ResizeHandle } from './ResizeHandle'
 
@@ -58,17 +59,17 @@ function MarkStroke({ item, tone, active, line }: { item: AiFeedback; tone: Tone
   if (operation === 'INSERT') {
     if (line < 0) return null
     const after = item.edit?.position === 'AFTER'
+    // 교사 삽입 표시와 같은 모양. 글자 아랫선에 놓고, 코멘트는 열린 쪽(아래)에 둔다.
     return (
       <span
         aria-hidden
         className={cn(
-          'pointer-events-none absolute -bottom-[0.55em] font-hand text-[14px] leading-none font-bold select-none',
+          'pointer-events-none absolute -bottom-[3px] h-[8px] w-[18px]',
           TEXT[tone],
+          CARET_SHAPE,
           after ? 'right-0 translate-x-1/2' : 'left-0 -translate-x-1/2',
         )}
-      >
-        ∧
-      </span>
+      />
     )
   }
   return (

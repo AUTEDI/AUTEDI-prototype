@@ -61,6 +61,8 @@ export type AiFeedback = {
   notePlacement: AiNotePlacement
   /** 교사가 코멘트를 옮기면 사진 기준 퍼센트 좌표가 저장된다. */
   notePosition: { left: number; top: number } | null
+  /** 코멘트 글자 크기 배율(기본 1). 화면에서만 쓰고 서버에는 저장하지 않는다. */
+  noteScale?: number
   /** 수정·삭제 요청의 If-Match 값. 예시 데이터는 null이다. */
   etag: string | null
 }
@@ -83,6 +85,8 @@ export type TeacherComment = {
   box: SelectionBox
   /** 캔버스 영역 기준 픽셀 좌표. 서버에서 불러온 직후에는 null이고 화면에서 배치한다. */
   note: { left: number; top: number; width: number } | null
+  /** 코멘트 글자 크기 배율(기본 1). 화면에서만 쓰고 서버에는 저장하지 않는다. */
+  noteScale?: number
   /** 서버에 저장된 코멘트 ID. 화면에서만 쓰는 표시(화살표 등)는 null이다. */
   serverId: string | null
   etag: string | null
