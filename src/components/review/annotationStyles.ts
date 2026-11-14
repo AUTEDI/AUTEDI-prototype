@@ -29,6 +29,15 @@ const ARROW_HEAD_RIGHT =
 const ARROW_HEAD_LEFT =
   "after:absolute after:top-0 after:left-0 after:size-0 after:border-y-[5px] after:border-r-8 after:border-y-transparent after:border-r-current after:content-['']"
 
+/**
+ * 삽입 표시(∧) 모양. 교사 표시와 AI 삽입 첨삭이 같은 모양을 쓴다.
+ * 요소 상자의 아래 양 끝에서 위 가운데로 올라가는 두 선이며, 색은 currentColor를 따른다.
+ */
+export const CARET_SHAPE = cn(
+  "before:absolute before:bottom-0 before:left-0 before:w-[54%] before:origin-right before:-rotate-30 before:border-t-[3px] before:border-current before:content-['']",
+  "after:absolute after:right-0 after:bottom-0 after:w-[54%] after:origin-left after:rotate-30 after:border-t-[3px] after:border-current after:content-['']",
+)
+
 /** 교사 표시(하이라이트·밑줄·취소선·화살표·네모·삽입 표시)의 모양 */
 export function teacherMarkClass(style: AnnotationStyle, color: AnnotationColor, reverse: boolean) {
   const ink = INK[color]
@@ -52,10 +61,6 @@ export function teacherMarkClass(style: AnnotationStyle, color: AnnotationColor,
         reverse ? ARROW_HEAD_LEFT : ARROW_HEAD_RIGHT,
       )
     case 'caret':
-      return cn(
-        ink.text,
-        "before:absolute before:bottom-0 before:left-0 before:w-[54%] before:origin-right before:-rotate-30 before:border-t-[3px] before:border-current before:content-['']",
-        "after:absolute after:right-0 after:bottom-0 after:w-[54%] after:origin-left after:rotate-30 after:border-t-[3px] after:border-current after:content-['']",
-      )
+      return cn(ink.text, CARET_SHAPE)
   }
 }

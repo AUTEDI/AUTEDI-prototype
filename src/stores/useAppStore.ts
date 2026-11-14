@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { USE_LIVE_API } from '../apis/config'
 import { ApiError, getErrorMessage } from '../apis/errors'
 import { reviewService, type UploadedWorksheet } from '../apis/reviewService'
 import { SAMPLE_FILE_NAME } from '../constants/sampleReview'
@@ -6,6 +7,23 @@ import { BASE_SETTINGS, DEFAULT_SETTINGS_STORAGE_KEY, cloneSettings } from '../c
 import type { FeedbackSetting, FlowStep } from '../types/review'
 
 export type Page = 'home' | 'ai'
+
+/** 첨삭 생성·검토 화면 주소. 새로고침해도 같은 학습지를 다시 연다. */
+const REVIEW_PATH = /^\/review\/(\d+)\/?$/
+
+export const reviewPath = (worksheetId: number) => `/review/${worksheetId}`
+
+/** 주소에 학습지 ID가 있으면 읽는다. 예시 모드는 서버에 결과가 없어 다시 열 수 없다. */
+function readResumeWorksheetId(): number | null {
+  if (!USE_LIVE_API || typeof window === 'undefined') return null
+  const match = REVIEW_PATH.exec(window.location.pathname)
+  return match ? Number(match[1]) : null
+}
+
+function readInitialPage(): Page {
+  if (typeof window === 'undefined') return 'home'
+  return /^\/(ai|review)(\/|$)/.test(window.location.pathname) ? 'ai' : 'home'
+}
 
 export type UploadedFile = {
   id: string
@@ -28,6 +46,9 @@ type AppState = {
   uploads: UploadedFile[]
   activeUploadId: string | null
   uploading: boolean
+  /** 새로고침 후 주소에서 읽은, 다시 열어야 할 학습지 ID. 불러오기를 마치면 null이다. */
+  resumeWorksheetId: number | null
+  finishResume: () => void
   navigate: (page: Page) => void
   setStep: (step: FlowStep) => void
   toggleSidebar: () => void
@@ -108,9 +129,13 @@ export const useAppStore = create<AppState>()((set, get) => {
     }
   }
 
+  const resumeWorksheetId = readResumeWorksheetId()
+
   return {
-    page: 'home',
-    step: 'upload',
+    page: readInitialPage(),
+    // 다시 여는 동안에는 단계 표시를 검토로 두고, 화면에는 불러오는 중 문구만 보여준다.
+    step: resumeWorksheetId === null ? 'upload' : 'review',
+    resumeWorksheetId,
     sidebarCollapsed: false,
     toast: null,
     defaults: initialDefaults,
@@ -119,9 +144,12 @@ export const useAppStore = create<AppState>()((set, get) => {
     activeUploadId: null,
     uploading: false,
 
+    finishResume: () => set({ resumeWorksheetId: null }),
     navigate: (page) => {
       // 새 첨삭은 매번 저장된 기본 설정에서 시작한다.
-      set(page === 'ai' ? { page, step: 'upload', sessionSettings: cloneSettings(get().defaults) } : { page })
+      set(page === 'ai'
+        ? { page, step: 'upload', sessionSettings: cloneSettings(get().defaults), resumeWorksheetId: null }
+        : { page, resumeWorksheetId: null })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     setStep: (step) => set({ step }),
@@ -198,3 +226,12 @@ export const useAppStore = create<AppState>()((set, get) => {
     },
   }
 })
+
+/** 지금 화면에 맞는 주소. 생성·검토 중이면 학습지 ID를 넣어 새로고침해도 다시 열 수 있게 한다. */
+export function screenPath(state: Pick<AppState, 'page' | 'step' | 'uploads' | 'activeUploadId' | 'resumeWorksheetId'>) {
+  if (state.page === 'home') return '/'
+  if (state.resumeWorksheetId !== null) return reviewPath(state.resumeWorksheetId)
+  const worksheetId = state.uploads.find((file) => file.id === state.activeUploadId)?.worksheet.worksheetId ?? null
+  if (state.step !== 'upload' && worksheetId !== null) return reviewPath(worksheetId)
+  return '/ai'
+}

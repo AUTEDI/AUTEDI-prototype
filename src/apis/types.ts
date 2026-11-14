@@ -110,11 +110,59 @@ export type CorrectionDto = {
   regionCoordinateUnit?: 'NORMALIZED_0_1' | (string & {}) | null
   requiresReview?: boolean | null
   locationUncertain?: boolean | null
-  // null로만 확인된 확장 필드는 계약이 정해질 때 구체화한다.
-  action?: unknown
-  anchor?: unknown
-  issueKinds?: unknown
-  warnings?: unknown
+  /** 일반 카드는 REPLACE 또는 GUIDANCE. 과거 미분류 자료는 null */
+  action?: 'REPLACE' | 'GUIDANCE' | (string & {}) | null
+  /** 한 줄 첨삭의 원문 연결. v1.1 여러 줄 첨삭에서는 null이고 anchors를 쓴다. */
+  anchor?: CorrectionAnchorDto | null
+  issueKinds?: string[] | null
+  /** 검증 경고. 새 코드가 추가될 수 있어 문자열·객체 모두 허용한다. */
+  warnings?: unknown[] | null
+  // ---- AI 계약 v1.1에서 추가된 필드 ----
+  /** AUTEDI-AI-CONTRACT-v1 또는 AUTEDI-AI-CONTRACT-v1.1 */
+  contractVersion?: string | null
+  /** 원문 연결 전체. 여러 줄이면 줄마다 하나씩 들어온다. */
+  anchors?: CorrectionAnchorDto[] | null
+  revisionScope?: RevisionScope | null
+  /** AI가 처음 제안한 수정 동작. 교사가 편집해도 유지된다. GUIDANCE는 null */
+  aiInitialEdit?: CorrectionEditDto | null
+  /** 현재 content에 유효한 수정 동작. 교사가 content를 바꾸면 null */
+  edit?: CorrectionEditDto | null
+  /** 현재 원문 좌표. regions와 같은 값이다. */
+  targetRegions?: RegionDto[] | null
+}
+
+export type RevisionScope = 'WORD' | 'PHRASE' | 'CLAUSE' | 'SENTENCE' | 'SENTENCE_GROUP'
+
+export type EditOperation = 'INSERT' | 'DELETE' | 'REPLACE' | 'RESTRUCTURE'
+
+export type CorrectionEditDto = {
+  operation: EditOperation | (string & {})
+  text: string
+  /** INSERT일 때만 BEFORE/AFTER, 다른 동작은 null */
+  position: 'BEFORE' | 'AFTER' | null
+}
+
+/** 확정 전사 기준 원문 위치. start/end는 줄 안의 0 기반 UTF-16 범위(end 미포함) */
+export type CorrectionAnchorDto = {
+  transcriptionId: number
+  lineId: number
+  occurrence: number
+  start: number
+  end: number
+}
+
+/** 페이지·영역별 첨삭 개수 집계. v1.1은 recommendedCount=0(권장 개수 없음), maximumCount=7 */
+export type CorrectionSummaryDto = {
+  generationId: number
+  pageId: number
+  pageNumber: number
+  area: AreaCode
+  level: string
+  recommendedCount: number
+  maximumCount: number
+  validatedCount: number
+  displayedCount: number
+  omittedCount: number
 }
 
 /** GET /worksheets/{id}/comments 응답. 첨삭 목록과 같은 형식들을 받는다. */
@@ -151,8 +199,9 @@ export type ReviewDto = {
   corrections: CorrectionDto[]
   comments: CommentDto[]
   aiResults?: unknown[]
+  /** 확인이 필요한 AI 후보. 화면에 쓰지 않으므로 형식을 고정하지 않는다. */
   reviewIssues?: unknown[]
-  summary?: unknown[]
+  summary?: CorrectionSummaryDto[]
 }
 
 /** 업로드는 학습지 정보만 반환하거나, 완료된 첨삭 결과까지 함께 반환할 수 있다. */

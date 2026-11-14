@@ -1,4 +1,4 @@
-import type { AnnotationStyle, SelectionBox } from '../types/review'
+import type { AiFeedback, AnnotationStyle, SelectionBox } from '../types/review'
 
 export type Point = { x: number; y: number }
 export type Size = { width: number; height: number }
@@ -37,6 +37,86 @@ export function placeAiNote(photo: Rect, board: Rect, note: Size, side: 'left' |
     x: fits(preferred) ? preferred : fits(opposite) ? opposite : preferred,
     y: photo.y + (top / 100) * photo.height,
   }, photo, board, note)
+}
+
+/** 서버 표시 박스는 글자 높이 전체를 덮으므로, 노트 아래쪽을 박스 위쪽에서 이만큼(박스 높이 비율) 내려 줄 사이에 둔다. */
+const AI_NOTE_LINE_OVERLAP = 0.35
+/** 노트끼리 붙지 않게 두는 간격(px) */
+const AI_NOTE_GAP = 4
+/** 삽입 표시(∧) 아래에 코멘트를 둘 때 표시와 띄우는 거리(px) */
+const CARET_NOTE_GAP = 6
+
+type NoteMark = { left: number; top: number; width: number; height?: number }
+export type NoteAnchor = 'start' | 'end' | 'center'
+
+/** 삽입은 ∧ 기호 위(앞이면 왼쪽 끝, 뒤면 오른쪽 끝), 나머지는 표시 가운데 위에 노트를 둔다. */
+export function aiNoteAnchor(item: Pick<AiFeedback, 'edit'>): NoteAnchor {
+  if (item.edit?.operation !== 'INSERT') return 'center'
+  return item.edit.position === 'AFTER' ? 'end' : 'start'
+}
+
+/**
+ * 손글씨 첨삭처럼 표시 근처에 문장을 둔다.
+ * - 삽입(앞이면 왼쪽 끝, 뒤면 오른쪽 끝): ∧ 기호의 열린 쪽인 아래에 둔다.
+ * - 나머지: 표시 가운데 바로 위(줄 사이)에 둔다.
+ * 사진 밖으로 나가지 않게 사진 안쪽으로 맞춘다. mark는 사진 기준 퍼센트(0~100)다.
+ */
+export function placeAiNoteAbove(photo: Rect, note: Size, mark: NoteMark, anchor: NoteAnchor = 'center'): Point {
+  const ratio = anchor === 'start' ? mark.left : anchor === 'end' ? mark.left + mark.width : mark.left + mark.width / 2
+  const anchorX = photo.x + (ratio / 100) * photo.width
+  const markTop = photo.y + (mark.top / 100) * photo.height
+  const markHeight = ((mark.height ?? 0) / 100) * photo.height
+  const x = clampToPhotoX(photo, note, anchorX - note.width / 2)
+  if (anchor !== 'center') {
+    const below = markTop + markHeight + CARET_NOTE_GAP
+    return { x, y: Math.min(below, Math.max(photo.y, photo.y + photo.height - note.height)) }
+  }
+  return { x, y: Math.max(photo.y, markTop + markHeight * AI_NOTE_LINE_OVERLAP - note.height) }
+}
+
+function clampToPhotoX(photo: Rect, note: Size, x: number) {
+  return clamp(x, photo.x, Math.max(photo.x, photo.x + photo.width - note.width))
+}
+
+const overlaps = (a: Rect, b: Rect) =>
+  a.x < b.x + b.width + AI_NOTE_GAP && b.x < a.x + a.width + AI_NOTE_GAP
+  && a.y < b.y + b.height && b.y < a.y + a.height
+
+/**
+ * 글자 위에 올리는 노트 여러 개를 겹치지 않게 배치한다.
+ * 위에서 아래, 왼쪽에서 오른쪽 순서로 놓고, 앞서 놓은 노트와 겹치면
+ * 오른쪽 → 왼쪽으로 비켜 보고, 그래도 겹치면 한 칸 위(삽입은 아래)로 옮긴다. 다 안 되면 기본 자리에 둔다.
+ */
+export function layoutAiNotesAbove(
+  photo: Rect,
+  notes: { id: string; size: Size; mark: NoteMark; anchor: NoteAnchor }[],
+): Record<string, Point> {
+  const placed: Rect[] = []
+  const result: Record<string, Point> = {}
+  const ordered = [...notes].sort((a, b) => a.mark.top - b.mark.top || a.mark.left - b.mark.left)
+  for (const note of ordered) {
+    const base = placeAiNoteAbove(photo, note.size, note.mark, note.anchor)
+    const rect = (point: Point): Rect => ({ ...point, ...note.size })
+    const fits = (point: Point) =>
+      point.x >= photo.x - 0.5 && point.x + note.size.width <= photo.x + photo.width + 0.5 && point.y >= photo.y - 0.5
+      && !placed.some((other) => overlaps(rect(point), other))
+    const candidates: Point[] = [base]
+    const blockers = placed.filter((other) => overlaps(rect(base), other))
+    for (const other of blockers) {
+      candidates.push({ x: other.x + other.width + AI_NOTE_GAP, y: base.y })
+      candidates.push({ x: other.x - AI_NOTE_GAP - note.size.width, y: base.y })
+    }
+    for (const other of blockers) {
+      // 위에 두는 노트는 한 칸 위로, 삽입 표시 아래에 두는 노트는 한 칸 아래로 비킨다.
+      candidates.push(note.anchor === 'center'
+        ? { x: base.x, y: other.y - AI_NOTE_GAP - note.size.height }
+        : { x: base.x, y: other.y + other.height + AI_NOTE_GAP })
+    }
+    const chosen = candidates.find(fits) ?? base
+    placed.push(rect(chosen))
+    result[note.id] = chosen
+  }
+  return result
 }
 
 /** 원본 비율을 유지하면서 주어진 영역 안에 이미지 전체가 들어가는 크기를 계산한다. */
@@ -83,14 +163,27 @@ export function placeTeacherNote({
   photo,
   selection,
   occupiedTops,
+  caret,
 }: {
   board: DOMRect
   photo: DOMRect
   selection: { top: number }
   occupiedTops: number[]
+  /** 삽입 표시(∧)면 그 상자(사진 기준 퍼센트). 코멘트를 열린 쪽인 아래 가운데에 둔다. */
+  caret?: { left: number; top: number; width: number; height: number }
 }) {
   const sideSpace = Math.max(52, photo.left - board.left - 10)
   const width = board.width < 500 ? Math.min(76, sideSpace) : Math.min(190, Math.max(118, board.width * 0.22))
+  if (caret) {
+    const centerX = photo.left - board.left + ((caret.left + caret.width / 2) / 100) * photo.width
+    const bottom = photo.top - board.top + ((caret.top + caret.height) / 100) * photo.height
+    const caretWidth = Math.min(width, 150)
+    return {
+      left: clamp(centerX - caretWidth / 2, 4, Math.max(4, board.width - caretWidth - 4)),
+      top: clamp(bottom + CARET_NOTE_GAP, 4, Math.max(4, board.height - 40)),
+      width: caretWidth,
+    }
+  }
   let left = photo.right - board.left + 8
   if (left + width > board.width - 6) left = Math.max(4, photo.left - board.left - width - 6)
   let top = Math.max(6, Math.min(board.height - 82, selection.top - board.top - 6))

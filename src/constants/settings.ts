@@ -17,7 +17,7 @@ export const BASE_SETTINGS: FeedbackSetting[] = [
     icon: '“ ”',
     desc: '단어 선택, 부자연스러운 표현과 불필요한 반복',
     selected: true,
-    level: 'Advanced',
+    level: 'Standard',
   },
   {
     id: 'structure',

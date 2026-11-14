@@ -23,6 +23,13 @@ export type Box = {
 
 export type FeedbackKind = 'correction' | 'improvement'
 
+/** AI 수정 동작. 삽입은 ∧ 기호, 삭제는 취소선, 나머지는 밑줄로 그린다. */
+export type FeedbackEdit = {
+  operation: 'INSERT' | 'DELETE' | 'REPLACE' | 'RESTRUCTURE'
+  text: string
+  position: 'BEFORE' | 'AFTER' | null
+}
+
 /** AI 코멘트의 기본 위치. side는 사진의 어느 쪽에 붙는지, top은 사진 기준 퍼센트다. */
 export type AiNotePlacement = {
   side: 'left' | 'right'
@@ -37,12 +44,25 @@ export type AiFeedback = {
   original: string
   suggestion: string
   reason: string
-  /** 사진 위 위치. 서버가 위치를 찾지 못한 첨삭은 null이며 목록에만 보인다. */
+  /** 사진 위 위치(첫 줄). 서버가 위치를 찾지 못한 첨삭은 null이며 목록에만 보인다. */
   mark: Box | null
+  /** 여러 줄에 걸친 첨삭의 두 번째 줄부터의 위치. 한 줄 첨삭은 빈 배열이다. */
+  extraMarks: Box[]
+  /** 현재 내용에 유효한 수정 동작. 없으면 밑줄과 노트로 표시한다. */
+  edit: FeedbackEdit | null
+  /** AI가 처음 제안한 문장. 교사가 고친 뒤 되돌릴 때 쓴다. */
+  aiSuggestion: string
+  editedByTeacher: boolean
+  /** 교사가 확인해야 하는 첨삭 */
+  requiresReview: boolean
+  /** 서버가 원문 위치를 확신하지 못한 첨삭 */
+  locationUncertain: boolean
   noteText: string
   notePlacement: AiNotePlacement
   /** 교사가 코멘트를 옮기면 사진 기준 퍼센트 좌표가 저장된다. */
   notePosition: { left: number; top: number } | null
+  /** 코멘트 글자 크기 배율(기본 1). 화면에서만 쓰고 서버에는 저장하지 않는다. */
+  noteScale?: number
   /** 수정·삭제 요청의 If-Match 값. 예시 데이터는 null이다. */
   etag: string | null
 }
@@ -65,6 +85,8 @@ export type TeacherComment = {
   box: SelectionBox
   /** 캔버스 영역 기준 픽셀 좌표. 서버에서 불러온 직후에는 null이고 화면에서 배치한다. */
   note: { left: number; top: number; width: number } | null
+  /** 코멘트 글자 크기 배율(기본 1). 화면에서만 쓰고 서버에는 저장하지 않는다. */
+  noteScale?: number
   /** 서버에 저장된 코멘트 ID. 화면에서만 쓰는 표시(화살표 등)는 null이다. */
   serverId: string | null
   etag: string | null

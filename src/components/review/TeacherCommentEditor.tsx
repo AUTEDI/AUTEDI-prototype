@@ -98,6 +98,7 @@ export function TeacherCommentEditor() {
         photo,
         selection: { top: photo.top + (draft.top / 100) * photo.height },
         occupiedTops: teacherComments.flatMap((comment) => (comment.note ? [comment.note.top] : [])),
+        caret: useReviewStore.getState().annotationStyle === 'caret' ? draft : undefined,
       }),
     )
   }

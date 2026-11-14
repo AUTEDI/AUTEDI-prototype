@@ -1,6 +1,6 @@
 import { useReviewStore } from '../../stores/useReviewStore'
 import { cn } from '../../utils/cn'
-import { AiFeedbackDetail } from './AiFeedbackDetail'
+import { AiFeedbackDetail, FeedbackFlags } from './AiFeedbackDetail'
 
 export function AiFeedbackPanel() {
   const feedback = useReviewStore((state) => state.feedback)
@@ -45,9 +45,11 @@ export function AiFeedbackPanel() {
             />
             <span className="grid min-w-0 gap-0.5">
               <b className="truncate text-[7px]">{item.suggestion}</b>
-              <small className="text-[6px] text-[#9a9eae]">
+              <small className="flex flex-wrap items-center gap-1 text-[6px] text-[#9a9eae]">
                 {item.category}
                 {!item.mark && ' · 사진 위치 확인 필요'}
+                {item.extraMarks.length > 0 && ` · ${item.extraMarks.length + 1}줄`}
+                <FeedbackFlags item={item} />
               </small>
             </span>
           </button>

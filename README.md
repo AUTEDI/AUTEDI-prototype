@@ -29,7 +29,7 @@ npm run dev
 기본 API 주소는 프로젝트 루트의 `.env`에 적습니다. 현재 로컬 개발에서도 이 값을 사용합니다. 다른 개발용 서버를 테스트할 때는 `.env.development.local`에 `VITE_API_BASE_URL`을 지정하면 `.env`보다 우선합니다. 두 파일은 Git에서 제외됩니다. 새 환경에서는 `.env.example`을 `.env`로 복사해 만들 수 있습니다.
 
 ```bash
-VITE_API_BASE_URL=https://autedi-mvp-dev.duckdns.org
+VITE_API_BASE_URL=https://api.autedi.co.kr
 ```
 
 - 값이 있으면 실제 백엔드(`{주소}/api/v1`)를 호출하고 로그인 화면부터 시작합니다.
