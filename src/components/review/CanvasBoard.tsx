@@ -1,7 +1,16 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useReviewStore } from '../../stores/useReviewStore'
 import type { TeacherComment } from '../../types/review'
-import { fitImageSize, placeTeacherNote, pointInRect, selectionFromPoints, type Point, type Size } from '../../utils/annotation'
+import {
+  aiNoteAnchor,
+  fitImageSize,
+  layoutAiNotesAbove,
+  placeTeacherNote,
+  pointInRect,
+  selectionFromPoints,
+  type Point,
+  type Size,
+} from '../../utils/annotation'
 import { cn } from '../../utils/cn'
 import { AiMark } from './AiMark'
 import { AiNote } from './AiNote'
@@ -44,6 +53,14 @@ export function CanvasBoard() {
   const [boardSize, setBoardSize] = useState<Size | null>(null)
   const [loadedImage, setLoadedImage] = useState<{ url: string; size: Size } | null>(null)
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  // 글자 위 AI 노트끼리 겹치지 않게 배치하려고 각 노트의 크기(확대 전)를 모은다.
+  const [noteSizes, setNoteSizes] = useState<Record<string, Size>>({})
+  const measureNote = useCallback((id: string, size: Size) => {
+    setNoteSizes((prev) => {
+      const old = prev[id]
+      return old && old.width === size.width && old.height === size.height ? prev : { ...prev, [id]: size }
+    })
+  }, [])
 
   // 실제 표시할 이미지의 크기를 사용하고, 주위에는 코멘트용 여백을 남긴다.
   const fittedSize = loadedImage?.url === worksheetUrl && boardSize
@@ -60,6 +77,24 @@ export function CanvasBoard() {
     },
     zoom,
   } : null
+
+  // 위치가 확실하고 교사가 옮기지 않은 노트만 자동 배치한다.
+  const notePositions = noteLayout
+    ? layoutAiNotesAbove(
+        noteLayout.photo,
+        feedback.flatMap((item) => {
+          const size = noteSizes[item.id]
+          if (!item.mark || !size || item.locationUncertain || item.notePosition || dismissedIds.includes(item.id)) return []
+          const anchor = aiNoteAnchor(item)
+          return [{
+            id: item.id,
+            size: { width: size.width * zoom, height: size.height * zoom },
+            mark: anchor === 'end' ? (item.extraMarks.at(-1) ?? item.mark) : item.mark,
+            anchor,
+          }]
+        }),
+      )
+    : {}
 
   useLayoutEffect(() => {
     const board = boardRef.current
@@ -175,7 +210,16 @@ export function CanvasBoard() {
             ),
         )}
         {noteLayout && feedback.map(
-          (item) => item.mark && <AiNote dismissed={dismissedIds.includes(item.id)} item={item} key={item.id} layout={noteLayout} />,
+          (item) => item.mark && (
+            <AiNote
+              autoPosition={notePositions[item.id]}
+              dismissed={dismissedIds.includes(item.id)}
+              item={item}
+              key={item.id}
+              layout={noteLayout}
+              onMeasure={measureNote}
+            />
+          ),
         )}
         {teacherComments.map((comment) => (
           <TeacherMark comment={comment} key={comment.id} selected={comment.id === selectedTeacherId} />

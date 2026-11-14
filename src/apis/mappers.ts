@@ -4,6 +4,7 @@ import type {
   AnnotationColor,
   AnnotationStyle,
   Box,
+  FeedbackEdit,
   FeedbackKind,
   FeedbackSetting,
   ReviewData,
@@ -16,6 +17,7 @@ import type {
   CommentColor,
   CommentDto,
   CorrectionDto,
+  CorrectionEditDto,
   HighlightType,
   RegionDto,
   ReviewDto,
@@ -70,24 +72,46 @@ function kindOf(correction: CorrectionDto): FeedbackKind {
   return correction.area === 'VOCABULARY_EXPRESSION' || correction.area === 'CONTENT_SUMMARY' ? 'improvement' : 'correction'
 }
 
-/** 현재 페이지의 활성 첨삭을 변환한다. 페이지 정보가 없는 좌표는 단일 페이지에서만 그린다. */
+const EDIT_OPERATIONS: FeedbackEdit['operation'][] = ['INSERT', 'DELETE', 'REPLACE', 'RESTRUCTURE']
+
+/** 알 수 없는 동작은 null로 두어 기본 밑줄 표시를 쓴다. */
+export function toFeedbackEdit(edit: CorrectionEditDto | null | undefined): FeedbackEdit | null {
+  if (!edit || !EDIT_OPERATIONS.includes(edit.operation as FeedbackEdit['operation'])) return null
+  const position = edit.operation === 'INSERT' && (edit.position === 'BEFORE' || edit.position === 'AFTER') ? edit.position : null
+  return { operation: edit.operation as FeedbackEdit['operation'], text: edit.text ?? '', position }
+}
+
+/** v1.1은 targetRegions, 이전 응답은 regions를 쓴다(둘은 같은 값). */
+function regionsOf(correction: CorrectionDto): RegionDto[] {
+  return correction.targetRegions?.length ? correction.targetRegions : (correction.regions ?? [])
+}
+
+/** 현재 페이지에 그릴 좌표. 페이지 정보가 없는 좌표는 단일 페이지에서만 그린다. 여러 줄이면 위에서 아래 순서다. */
+function pageRegions(regions: RegionDto[], pageId: number | null, pageCount: number): RegionDto[] {
+  const scoped = pageId === null ? [] : regions.filter((region) => region.pageId === pageId)
+  if (scoped.length) return scoped
+  if (pageCount === 1 && regions.every((region) => region.pageId == null)) return regions
+  return []
+}
+
+/** 현재 페이지의 활성 첨삭을 변환한다. */
 export function toAiFeedback(corrections: CorrectionDto[], pageId: number | null, pageCount = 1): AiFeedback[] {
   return corrections
     .filter((correction) => correction.status === 'ACTIVE')
-    .filter((correction) =>
-      correction.regions.every((region) => region.pageId == null) ||
-      correction.regions.some((region) => pageId !== null && region.pageId === pageId),
-    )
+    .filter((correction) => {
+      const regions = regionsOf(correction)
+      return regions.every((region) => region.pageId == null) ||
+        regions.some((region) => pageId !== null && region.pageId === pageId)
+    })
     .map((correction, index) => {
-      const scopedRegion = correction.regions.find((item) => pageId !== null && item.pageId === pageId)
-      const unscopedRegion = pageCount === 1 && correction.regions.every((item) => item.pageId == null)
-        ? correction.regions[0]
-        : undefined
-      const region = scopedRegion ?? unscopedRegion
       // 단위가 명시되지 않은 기존 응답도 0~1 좌표다. 다른 단위는 위치를 추측하지 않는다.
       const normalized = correction.regionCoordinateUnit == null || correction.regionCoordinateUnit === 'NORMALIZED_0_1'
-      const mark = region && normalized ? regionToBox(region) : null
+      const boxes = normalized ? pageRegions(regionsOf(correction), pageId, pageCount).map(regionToBox) : []
+      const [mark = null, ...extraMarks] = boxes
+      const edit = toFeedbackEdit(correction.edit)
       const settingId = SETTING_BY_AREA[correction.area]
+      // 삭제 동작은 내용이 비어 있을 수 있어 노트에 '삭제'라고 적는다.
+      const noteText = correction.content || (edit?.operation === 'DELETE' ? '삭제' : '')
       return {
         id: String(correction.id),
         kind: kindOf(correction),
@@ -96,7 +120,13 @@ export function toAiFeedback(corrections: CorrectionDto[], pageId: number | null
         suggestion: correction.content,
         reason: correction.explanation,
         mark,
-        noteText: correction.content,
+        extraMarks,
+        edit,
+        aiSuggestion: correction.aiInitialContent ?? correction.content,
+        editedByTeacher: Boolean(correction.editedByTeacher),
+        requiresReview: Boolean(correction.requiresReview),
+        locationUncertain: Boolean(correction.locationUncertain),
+        noteText,
         // 코멘트가 겹치지 않도록 사진 오른쪽과 왼쪽에 번갈아 둔다.
         notePlacement: { side: index % 2 === 0 ? 'right' : 'left', top: mark?.top ?? 0, mobileTop: mark?.top ?? 0 },
         notePosition: null,

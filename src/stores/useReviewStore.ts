@@ -60,7 +60,8 @@ type ReviewState = {
   dismissActiveFeedback: () => Promise<void>
   restoreFeedback: (id: string) => Promise<void>
   /** 저장에 성공하면 true를 돌려준다. */
-  saveSuggestion: (id: string, suggestion: string) => Promise<boolean>
+  /** message를 주면 성공 안내 문구를 바꾼다 (AI 원래 제안으로 되돌릴 때 등). */
+  saveSuggestion: (id: string, suggestion: string, message?: string) => Promise<boolean>
   moveAiMark: (id: string, mark: Box) => void
   /** 옮기거나 크기를 바꾼 AI 표시 위치를 저장한다. */
   saveAiMark: (id: string, message: string) => Promise<void>
@@ -278,13 +279,20 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
       get().selectFeedback(id)
       toast('삭제한 AI 첨삭을 되돌렸어요')
     }),
-    saveSuggestion: (id, suggestion) => mutate(async () => {
+    saveSuggestion: (id, suggestion, message = '추천 문장을 수정했어요') => mutate(async () => {
       const item = findFeedback(id)
       if (!item) return false
       try {
         const { etag } = await reviewService.updateSuggestion(get().worksheetId, item, suggestion)
-        patchFeedback(id, { suggestion, noteText: suggestion, etag })
-        toast('추천 문장을 수정했어요')
+        // 내용이 바뀌면 서버도 현재 수정 동작(edit)을 비운다. 최초 AI 제안은 그대로 둔다.
+        const changed = suggestion !== item.suggestion
+        patchFeedback(id, {
+          suggestion,
+          noteText: suggestion,
+          etag,
+          ...(changed ? { edit: null, editedByTeacher: suggestion !== item.aiSuggestion } : {}),
+        })
+        toast(message)
         return true
       } catch (error) {
         toast(getErrorMessage(error, '추천 문장을 저장하지 못했어요. 다시 시도해주세요.'))
