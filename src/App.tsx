@@ -5,7 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { MobileUploadPage } from './pages/MobileUploadPage'
 import { ReviewPage } from './pages/ReviewPage'
 import { SignupPage } from './pages/SignupPage'
-import { useAppStore } from './stores/useAppStore'
+import { screenPath, useAppStore } from './stores/useAppStore'
 import { useAuthStore } from './stores/useAuthStore'
 
 const readPathname = () => window.location.pathname.replace(/\/+$/, '') || '/'
@@ -23,6 +23,18 @@ function App() {
     if (pathname === '/qr-login') return
     void restore()
   }, [pathname, restore])
+
+  useEffect(() => {
+    // 화면이 바뀔 때마다 주소를 맞춘다. 기록은 쌓지 않고 현재 주소만 바꾼다.
+    const syncAddress = () => {
+      const current = readPathname()
+      if (current === '/qr-login' || current === '/signup') return
+      const next = screenPath(useAppStore.getState())
+      if (next !== current) window.history.replaceState(null, '', next)
+    }
+    syncAddress()
+    return useAppStore.subscribe(syncAddress)
+  }, [pathname])
 
   useEffect(() => {
     const syncPath = () => setPathname(readPathname())
