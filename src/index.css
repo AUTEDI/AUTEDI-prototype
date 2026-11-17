@@ -47,38 +47,6 @@
   background-image: linear-gradient(135deg, #7476f4, #4055d8);
 }
 
-/* PDF 출력: 첨삭 캔버스만 A4 가로 한 장에 인쇄한다. 크기와 --print-scale은 ReviewStep에서 정한다. */
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 8mm;
-  }
-
-  /* 캔버스와 그 조상만 남겨 빈 페이지가 생기지 않게 한다. */
-  body *:not(:has([data-print-area])):not([data-print-area]):not([data-print-area] *) {
-    display: none !important;
-  }
-
-  body * {
-    visibility: hidden;
-  }
-
-  [data-print-area],
-  [data-print-area] * {
-    visibility: visible;
-  }
-
-  [data-print-area] {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    transform: scale(var(--print-scale, 1));
-    transform-origin: top left;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-}
-
 @layer base {
   /* Tailwind 기본값(1.5) 대신 기획 화면의 브라우저 기본 줄높이를 쓴다. */
   html {
