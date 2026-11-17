@@ -4,7 +4,6 @@ import { useReviewStore } from '../../stores/useReviewStore'
 import { cn } from '../../utils/cn'
 import { CanvasBoard } from './CanvasBoard'
 import { CanvasRefsContext } from './canvasRefs'
-import { CompleteModal } from './CompleteModal'
 import { FeedbackPanel } from './FeedbackPanel'
 import { PageRail } from './PageRail'
 import { StudioTitlebar } from './StudioTitlebar'
@@ -16,15 +15,14 @@ export function ReviewStep({ onSelectFile }: { onSelectFile: (uploadId: string) 
   const [canvasRefs] = useState(() => ({ photoRef, boardRef }))
   const panelOpen = useReviewStore((state) => state.panelOpen)
   const showToast = useAppStore((state) => state.showToast)
-  const [completeOpen, setCompleteOpen] = useState(false)
 
-  // 학습지 사진과 그 위·옆의 첨삭만 잘라 PDF 파일로 내려받는다.
+  // 학습지 사진과 그 위·옆의 첨삭만 잘라 인쇄 화면을 연다. (인쇄 대상에서 "PDF로 저장" 가능)
   const exportPdf = async () => {
     const board = boardRef.current
     const photo = photoRef.current
     if (!board || !photo) return
     try {
-      const [{ toCanvas }, { jsPDF }] = await Promise.all([import('html-to-image'), import('jspdf')])
+      const { toCanvas } = await import('html-to-image')
       const boardRect = board.getBoundingClientRect()
       // 사진, 사진 안의 표시·AI 노트, 교사 코멘트 레이어를 모두 감싸는 영역
       const parts = [photo, ...photo.querySelectorAll('*'), ...board.querySelectorAll('[aria-live] *')]
@@ -50,10 +48,22 @@ export function ReviewStep({ onSelectFile }: { onSelectFile: (uploadId: string) 
       cropped.height = height * RATIO
       cropped.getContext('2d')!.drawImage(full, left * RATIO, top * RATIO, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height)
 
-      const pdf = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'px', format: [width, height] })
-      pdf.addImage(cropped, 'PNG', 0, 0, width, height)
-      pdf.save('autedi-첨삭.pdf')
-      setCompleteOpen(true)
+      // 잘라낸 이미지 한 장만 담은 숨은 iframe을 인쇄해, 화면 레이아웃과 상관없이 한 페이지에 맞춘다.
+      const frame = document.createElement('iframe')
+      frame.style.cssText = 'position:fixed;width:0;height:0;border:0'
+      document.body.append(frame)
+      const doc = frame.contentDocument!
+      doc.open()
+      doc.write(`<!doctype html><title>autedi-첨삭</title><style>
+        @page { size: A4 ${width > height ? 'landscape' : 'portrait'}; margin: 8mm; }
+        html, body { margin: 0; height: 100%; }
+        img { display: block; width: 100%; height: 100%; object-fit: contain; }
+      </style><img src="${cropped.toDataURL('image/png')}">`)
+      doc.close()
+      doc.querySelector('img')!.onload = () => {
+        frame.contentWindow!.addEventListener('afterprint', () => frame.remove(), { once: true })
+        frame.contentWindow!.print()
+      }
     } catch {
       showToast('PDF를 만들지 못했어요. 잠시 후 다시 시도해주세요.')
     }
@@ -79,7 +89,6 @@ export function ReviewStep({ onSelectFile }: { onSelectFile: (uploadId: string) 
           <FeedbackPanel />
         </div>
       </div>
-      {completeOpen && <CompleteModal onClose={() => setCompleteOpen(false)} />}
     </CanvasRefsContext>
   )
 }
