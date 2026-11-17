@@ -50,7 +50,7 @@ export function TeacherNote({
     <article
       className={cn(
         'pointer-events-auto absolute z-[8] block cursor-pointer touch-none px-2 py-[3px] font-hand select-none',
-        selected && 'z-[11] rounded-[3px] outline-1 outline-offset-1 outline-[#a58be6]/70 outline-dashed',
+        selected && 'z-[11]',
         selected
           ? 'text-[#5b35b8] drop-shadow-[0_2px_0_rgba(91,53,184,0.16)]'
           : noteInkClass(comment.color),

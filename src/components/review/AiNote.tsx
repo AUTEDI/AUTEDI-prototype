@@ -109,7 +109,7 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
         onText
           ? 'w-max max-w-[calc(136px*var(--note-scale))] px-[3px] py-0 sm:max-lg:max-w-[calc(106px*var(--note-scale))] max-sm:max-w-[calc(78px*var(--note-scale))]'
           : 'w-[calc(136px*var(--note-scale))] px-[5px] py-0.5 sm:max-lg:w-[calc(106px*var(--note-scale))] max-sm:w-[calc(78px*var(--note-scale))]',
-        active && 'z-[11] rounded-[3px] outline-1 outline-offset-1 outline-[#8c95e8]/70 outline-dashed',
+        active && 'z-[11]',
         item.kind === 'correction' ? 'text-correction-ink' : 'text-improvement-ink',
         dragging && 'cursor-grabbing opacity-82',
         dismissed && 'hidden',

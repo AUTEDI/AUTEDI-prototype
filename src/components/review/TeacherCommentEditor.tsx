@@ -20,22 +20,12 @@ const COLORS: { id: AnnotationColor; name: string; dot: string; active: string }
 
 function SavedTeacherComments() {
   const teacherComments = useReviewStore((state) => state.teacherComments)
-  const startNewTeacherComment = useReviewStore((state) => state.startNewTeacherComment)
   const focusTeacherComment = useReviewStore((state) => state.focusTeacherComment)
   const deleteTeacherComment = useReviewStore((state) => state.deleteTeacherComment)
 
   return (
     <div className="mt-4 border-t border-[#e5e7ef] pt-[13px]">
-      <div className="flex items-center justify-between">
-        <b className="text-[8px]">저장된 코멘트</b>
-        <button
-          className="rounded-[7px] bg-[#eef0ff] px-2 py-1.5 text-[7px] font-extrabold text-[#4f5fd2]"
-          onClick={startNewTeacherComment}
-          type="button"
-        >
-          ＋ 새 코멘트
-        </button>
-      </div>
+      <b className="text-[8px]">저장된 코멘트</b>
       <div className="mt-[9px] grid gap-[7px]">
         {teacherComments.length ? (
           teacherComments.map((comment, index) => (
