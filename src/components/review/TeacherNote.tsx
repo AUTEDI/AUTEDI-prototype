@@ -6,7 +6,6 @@ import type { TeacherComment } from '../../types/review'
 import { cn } from '../../utils/cn'
 import { noteInkClass } from './annotationStyles'
 import { getRect, useCanvasRefs } from './canvasRefs'
-import { NoteSizeControl } from './NoteSizeControl'
 
 /** 사진 옆 여백에 손글씨로 적힌 교사 코멘트 */
 export function TeacherNote({
@@ -21,7 +20,6 @@ export function TeacherNote({
   const { boardRef } = useCanvasRefs()
   const moveTeacherNote = useReviewStore((state) => state.moveTeacherNote)
   const selectTeacherComment = useReviewStore((state) => state.selectTeacherComment)
-  const setTeacherNoteScale = useReviewStore((state) => state.setTeacherNoteScale)
   const scale = comment.noteScale ?? 1
   const showToast = useAppStore((state) => state.showToast)
 
@@ -62,7 +60,6 @@ export function TeacherNote({
       style={{ left: note.left, top: note.top, width: note.width * scale, '--note-scale': scale } as CSSProperties}
       {...handlers}
     >
-      {selected && <NoteSizeControl onChange={(next) => setTeacherNoteScale(comment.id, next)} scale={scale} />}
       <p className="m-0 text-[length:calc(14px*var(--note-scale))] leading-[1.35] font-semibold tracking-[0.15px] break-words [text-shadow:0_0.4px_0_rgba(23,77,145,0.28)]">
         {comment.text}
       </p>

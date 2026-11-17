@@ -6,7 +6,6 @@ import type { AiFeedback } from '../../types/review'
 import { aiNoteAnchor as noteAnchor, clampAiNotePosition, placeAiNote, placeAiNoteAbove, type Point, type Rect, type Size } from '../../utils/annotation'
 import { cn } from '../../utils/cn'
 import { getRect, useCanvasRefs } from './canvasRefs'
-import { NoteSizeControl } from './NoteSizeControl'
 
 type DragState = { dx: number; dy: number; x: number; y: number; moved: boolean }
 
@@ -23,7 +22,6 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
   const { photoRef, boardRef } = useCanvasRefs()
   const selectFeedback = useReviewStore((state) => state.selectFeedback)
   const moveAiNote = useReviewStore((state) => state.moveAiNote)
-  const setAiNoteScale = useReviewStore((state) => state.setAiNoteScale)
   const active = useReviewStore((state) => state.activeFeedbackId === item.id)
   const showToast = useAppStore((state) => state.showToast)
   const suppressClick = useRef(false)
@@ -131,7 +129,6 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
       tabIndex={0}
       {...handlers}
     >
-      {active && !dismissed && <NoteSizeControl onChange={(next) => setAiNoteScale(item.id, next)} scale={scale} />}
       <p className="m-0 text-[length:calc(13px*var(--note-scale))] leading-[1.28] font-semibold tracking-[0.1px] break-words whitespace-pre-line [text-shadow:0_0.35px_0_rgba(18,69,132,0.32)] sm:max-lg:text-[length:calc(11px*var(--note-scale))] max-sm:text-[length:calc(8px*var(--note-scale))]">
         {item.noteText}
       </p>
