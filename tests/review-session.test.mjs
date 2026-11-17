@@ -85,6 +85,42 @@ test('없는 파일 선택은 현재 검토를 변경하지 않는다', () => {
   assert.equal(store.getState().selectReview('first'), true)
 })
 
+test('저장된 교사 첨삭을 선택·해제하거나 새 코멘트를 시작해도 내용은 유지된다', async () => {
+  store.getState().startReview('first', review('first'))
+  store.getState().setDraft({ left: 10, top: 20, width: 30, height: 5, reverse: false })
+  store.getState().finishDraft()
+  store.getState().setCommentText('첫 코멘트')
+  await store.getState().saveTeacherComment({ left: 200, top: 100, width: 190 })
+  const [comment] = store.getState().teacherComments
+
+  store.getState().selectTeacherComment(comment.id)
+  assert.equal(store.getState().toolMode, 'idle')
+  store.getState().selectTeacherComment(null)
+  assert.equal(store.getState().selectedTeacherId, null)
+  assert.deepEqual(store.getState().teacherComments, [comment])
+
+  store.getState().selectTeacherComment(comment.id)
+  store.getState().startNewTeacherComment()
+  assert.equal(store.getState().selectedTeacherId, null)
+  assert.equal(store.getState().toolMode, 'annotate')
+  store.getState().selectTeacherComment(comment.id)
+  store.getState().selectFeedback('shared')
+  assert.equal(store.getState().selectedTeacherId, null)
+  assert.deepEqual(store.getState().teacherComments, [comment])
+})
+
+test('드래그 초안을 지우면 입력한 코멘트만으로 빈 표시를 저장하지 않는다', async () => {
+  store.getState().startReview('first', review('first'))
+  store.getState().setDraft({ left: 10, top: 20, width: 30, height: 5, reverse: false })
+  store.getState().finishDraft()
+  store.getState().setCommentText('아직 저장하지 않은 내용')
+  store.getState().setDraft(null)
+  assert.equal(store.getState().draftReady, false)
+  await store.getState().saveTeacherComment({ left: 200, top: 100, width: 190 })
+  assert.deepEqual(store.getState().teacherComments, [])
+  assert.equal(store.getState().commentText, '아직 저장하지 않은 내용')
+})
+
 test('서버의 반영 상태로 시작하고 파일 전환 후에도 상태를 유지한다', async () => {
   store.getState().startReview('first', { ...review('first'), appliedIds: ['shared', 'missing'] })
   assert.deepEqual(store.getState().appliedIds, ['shared'])

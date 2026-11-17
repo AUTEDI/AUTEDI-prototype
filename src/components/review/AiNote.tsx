@@ -100,20 +100,25 @@ export function AiNote({ item, dismissed, layout, autoPosition, onMeasure }: {
     selectFeedback(item.id)
   }
 
+  const printClassName = cn(
+    'absolute z-[8] cursor-pointer touch-none overflow-visible text-left font-hand select-none',
+    onText
+      ? 'w-max max-w-[calc(136px*var(--note-scale))] px-[3px] py-0 sm:max-lg:max-w-[calc(106px*var(--note-scale))] max-sm:max-w-[calc(78px*var(--note-scale))]'
+      : 'w-[calc(136px*var(--note-scale))] px-[5px] py-0.5 sm:max-lg:w-[calc(106px*var(--note-scale))] max-sm:w-[calc(78px*var(--note-scale))]',
+    item.kind === 'correction' ? 'text-correction-ink' : 'text-improvement-ink',
+    dismissed && 'hidden',
+  )
+
   // 글자 크기 조절 버튼을 안에 넣어야 해서 button 대신 role="button"인 div를 쓴다.
   return (
     <div
       aria-label={`AI 코멘트: ${item.noteText}`}
       className={cn(
-        'absolute z-[8] cursor-pointer touch-none overflow-visible text-left font-hand select-none',
-        onText
-          ? 'w-max max-w-[calc(136px*var(--note-scale))] px-[3px] py-0 sm:max-lg:max-w-[calc(106px*var(--note-scale))] max-sm:max-w-[calc(78px*var(--note-scale))]'
-          : 'w-[calc(136px*var(--note-scale))] px-[5px] py-0.5 sm:max-lg:w-[calc(106px*var(--note-scale))] max-sm:w-[calc(78px*var(--note-scale))]',
+        printClassName,
         active && 'z-[11] rounded-[3px] outline-1 outline-offset-1 outline-[#8c95e8]/70 outline-dashed',
-        item.kind === 'correction' ? 'text-correction-ink' : 'text-improvement-ink',
         dragging && 'cursor-grabbing opacity-82',
-        dismissed && 'hidden',
       )}
+      data-pdf-class={printClassName}
       onClick={(event) => {
         event.stopPropagation()
         select()

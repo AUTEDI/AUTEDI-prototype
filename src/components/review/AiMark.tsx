@@ -42,7 +42,7 @@ const boxStyle = (box: Box): CSSProperties => ({
  * - 교체·재구성·동작 없음: 밑줄
  * 위치가 불확실한 첨삭은 점선으로 그린다.
  */
-function MarkStroke({ item, tone, active, line }: { item: AiFeedback; tone: Tone; active: boolean; line: number }) {
+function MarkStroke({ item, tone, printTone, active, line }: { item: AiFeedback; tone: Tone; printTone: Tone; active: boolean; line: number }) {
   const operation = item.edit?.operation
   const dashed = item.locationUncertain
   const thickness = active ? 'border-b-3' : 'border-b-2'
@@ -51,6 +51,7 @@ function MarkStroke({ item, tone, active, line }: { item: AiFeedback; tone: Tone
     return (
       <span
         aria-hidden
+        data-pdf-class={cn('pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 border-b-2', BORDER[printTone], dashed && 'border-dashed')}
         className={cn('pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 border-b', BORDER[tone], thickness, dashed && 'border-dashed')}
       />
     )
@@ -63,6 +64,7 @@ function MarkStroke({ item, tone, active, line }: { item: AiFeedback; tone: Tone
     return (
       <span
         aria-hidden
+        data-pdf-class={cn('pointer-events-none absolute -bottom-[3px] h-[8px] w-[18px]', TEXT[printTone], CARET_SHAPE, after ? 'right-0 translate-x-1/2' : 'left-0 -translate-x-1/2')}
         className={cn(
           'pointer-events-none absolute -bottom-[3px] h-[8px] w-[18px]',
           TEXT[tone],
@@ -75,6 +77,7 @@ function MarkStroke({ item, tone, active, line }: { item: AiFeedback; tone: Tone
   return (
     <span
       aria-hidden
+      data-pdf-class={cn('pointer-events-none absolute inset-x-0 bottom-0 border-b-2', BORDER[printTone], dashed && 'border-dashed')}
       className={cn('pointer-events-none absolute inset-x-0 bottom-0 border-b', BORDER[tone], thickness, dashed && 'border-dashed')}
     />
   )
@@ -101,6 +104,8 @@ export function AiMark({ item, mark, active, applied, dismissed }: AiMarkProps) 
   const suppressClick = useRef(false)
   const multiLine = item.extraMarks.length > 0
   const tone = toneOf(item, active, applied)
+  const printTone = toneOf(item, false, applied)
+  const printClassName = cn('absolute z-[6] block touch-none bg-transparent p-0', multiLine && 'cursor-pointer', dismissed && 'hidden')
   const lines = [mark, ...item.extraMarks]
   const insertAfter = item.edit?.operation === 'INSERT' && item.edit.position === 'AFTER'
   // 삽입 기호를 그릴 줄: 앞에 넣으면 첫 줄, 뒤에 넣으면 마지막 줄
@@ -144,16 +149,16 @@ export function AiMark({ item, mark, active, applied, dismissed }: AiMarkProps) 
       <button
         aria-label={multiLine ? `${label} (1/${lines.length}줄)` : label}
         className={cn(
-          'absolute z-[6] block touch-none bg-transparent p-0',
-          multiLine ? 'cursor-pointer' : dragging && 'cursor-grabbing opacity-82',
-          dismissed && 'hidden',
+          printClassName,
+          !multiLine && dragging && 'cursor-grabbing opacity-82',
         )}
+        data-pdf-class={printClassName}
         onClick={select}
         style={boxStyle(mark)}
         type="button"
         {...(multiLine ? {} : handlers)}
       >
-        <MarkStroke active={active} item={item} line={insertLine === 0 ? 0 : -1} tone={tone} />
+        <MarkStroke active={active} item={item} line={insertLine === 0 ? 0 : -1} tone={tone} printTone={printTone} />
         {!multiLine && (
           <ResizeHandle
             box={mark}
@@ -177,7 +182,7 @@ export function AiMark({ item, mark, active, applied, dismissed }: AiMarkProps) 
           style={boxStyle(box)}
           type="button"
         >
-          <MarkStroke active={active} item={item} line={insertLine === index + 1 ? index + 1 : -1} tone={tone} />
+          <MarkStroke active={active} item={item} line={insertLine === index + 1 ? index + 1 : -1} tone={tone} printTone={printTone} />
         </button>
       ))}
     </>

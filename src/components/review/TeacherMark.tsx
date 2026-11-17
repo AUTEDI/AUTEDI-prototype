@@ -24,6 +24,7 @@ export function TeacherDraftMark({
 }) {
   return (
     <div
+      data-pdf-hide
       className={cn('pointer-events-none absolute z-[7] block', teacherMarkClass(style, color, draft.reverse))}
       style={boxStyle(draft)}
     />
@@ -34,13 +35,16 @@ export function TeacherDraftMark({
 export function TeacherMark({ comment, selected }: { comment: TeacherComment; selected: boolean }) {
   const { photoRef } = useCanvasRefs()
   const moveTeacherMark = useReviewStore((state) => state.moveTeacherMark)
+  const selectTeacherComment = useReviewStore((state) => state.selectTeacherComment)
   const deleteTeacherComment = useReviewStore((state) => state.deleteTeacherComment)
   const showToast = useAppStore((state) => state.showToast)
+  const printClassName = cn('absolute z-[7] block touch-none p-0', teacherMarkClass(comment.style, comment.color, comment.box.reverse))
 
   const { dragging, handlers } = usePointerDrag<{ x: number; y: number; box: Box; moved: boolean }>({
     start: (event) => {
       event.preventDefault()
       event.stopPropagation()
+      selectTeacherComment(comment.id)
       return { x: event.clientX, y: event.clientY, box: comment.box, moved: false }
     },
     move: (event, state) => {
@@ -59,12 +63,14 @@ export function TeacherMark({ comment, selected }: { comment: TeacherComment; se
 
   return (
     <button
+      aria-label="교사 첨삭 표시"
       className={cn(
-        'absolute z-[7] block touch-none p-0',
-        teacherMarkClass(comment.style, comment.color, comment.box.reverse),
+        printClassName,
         selected && 'shadow-[0_0_0_2px_rgba(105,63,199,0.14)]',
         dragging && 'cursor-grabbing opacity-82',
       )}
+      data-pdf-class={printClassName}
+      data-teacher-mark={comment.id}
       onDoubleClick={() => void deleteTeacherComment(comment.id)}
       style={boxStyle(comment.box)}
       title="드래그해 이동 · 더블클릭해 표시와 코멘트 삭제"

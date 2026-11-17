@@ -66,7 +66,7 @@ type ReviewState = {
   /** 옮기거나 크기를 바꾼 AI 표시 위치를 저장한다. */
   saveAiMark: (id: string, message: string) => Promise<void>
   moveAiNote: (id: string, position: { left: number; top: number }) => void
-  /** 사진에서 교사 코멘트를 눌러 선택한다(글자 크기 조절 등). */
+  /** 사진에서 교사 코멘트를 선택하거나 선택을 해제한다. */
   selectTeacherComment: (id: string | null) => void
 
   setToolMode: (mode: ToolMode) => void
@@ -75,7 +75,7 @@ type ReviewState = {
   setAnnotationColor: (color: AnnotationColor) => void
   startNewTeacherComment: () => void
   cancelTeacherComment: () => void
-  setDraft: (draft: SelectionBox) => void
+  setDraft: (draft: SelectionBox | null) => void
   finishDraft: () => void
   setCommentText: (text: string) => void
   saveTeacherComment: (note: NonNullable<TeacherComment['note']>) => Promise<void>
@@ -221,7 +221,7 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
     selectFeedback: (id) => {
       if (get().dismissedIds.includes(id)) return
       if (get().toolMode === 'annotate') get().setToolMode('idle')
-      set({ activeFeedbackId: id, panelOpen: true, panelMode: 'ai', detailOpen: true })
+      set({ activeFeedbackId: id, panelOpen: true, panelMode: 'ai', detailOpen: true, selectedTeacherId: null })
     },
     showAiList: () => set({ panelOpen: true, panelMode: 'ai', detailOpen: false }),
     showManualEditor: () => set({ panelOpen: true, panelMode: 'teacher' }),
@@ -314,9 +314,9 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
       }
     }),
     moveAiNote: (id, notePosition) => patchFeedback(id, { notePosition }),
-    selectTeacherComment: (id) => set({ selectedTeacherId: id }),
+    selectTeacherComment: (id) => set({ selectedTeacherId: id, ...(id !== null ? { toolMode: 'idle' } : {}) }),
 
-    setToolMode: (toolMode) => set({ toolMode, guideHidden: false }),
+    setToolMode: (toolMode) => set({ toolMode, guideHidden: false, selectedTeacherId: null }),
     hideGuide: () => set({ guideHidden: true }),
     beginAnnotation: (annotationStyle) => {
       set({ annotationStyle })
@@ -326,14 +326,14 @@ export const useReviewStore = create<ReviewState>()((set, get) => {
     setAnnotationColor: (annotationColor) => set({ annotationColor }),
     startNewTeacherComment: () => {
       get().showManualEditor()
-      set({ toolMode: 'annotate', guideHidden: false, ...emptyEditor })
+      set({ toolMode: 'annotate', guideHidden: false, selectedTeacherId: null, ...emptyEditor })
     },
     cancelTeacherComment: () => {
-      set({ ...emptyEditor, toolMode: 'idle', guideHidden: true })
+      set({ ...emptyEditor, toolMode: 'idle', guideHidden: true, selectedTeacherId: null })
       get().showAiList()
       toast('수기 첨삭 입력을 취소했어요')
     },
-    setDraft: (draft) => set({ draft }),
+    setDraft: (draft) => set({ draft, draftReady: false }),
     finishDraft: () => set((state) => ({ draftReady: (state.draft?.width ?? 0) > 2 })),
     setCommentText: (commentText) => set({ commentText }),
     saveTeacherComment: (note) => mutate(async () => {

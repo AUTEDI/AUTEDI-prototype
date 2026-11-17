@@ -39,6 +39,7 @@ export function ResizeHandle({ box, visible, lockHeight = false, tone, onResize,
   return (
     <span
       aria-hidden="true"
+      data-pdf-hide
       className={cn(
         'absolute -right-1.5 -bottom-1.5 z-12 size-3 cursor-nwse-resize touch-none rounded-full border-2 border-white',
         tone === 'ai'

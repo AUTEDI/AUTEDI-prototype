@@ -14,6 +14,10 @@ type DragHandlers<S> = {
 export function usePointerDrag<S>({ start, move, end }: DragHandlers<S>) {
   const stateRef = useRef<S | null>(null)
   const [dragging, setDragging] = useState(false)
+  const cancel = () => {
+    stateRef.current = null
+    setDragging(false)
+  }
 
   return {
     dragging,
@@ -35,6 +39,8 @@ export function usePointerDrag<S>({ start, move, end }: DragHandlers<S>) {
         setDragging(false)
         end?.(state)
       },
+      onPointerCancel: cancel,
+      onLostPointerCapture: cancel,
     },
   }
 }

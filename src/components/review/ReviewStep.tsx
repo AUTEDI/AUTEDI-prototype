@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { useAppStore } from '../../stores/useAppStore'
 import { useReviewStore } from '../../stores/useReviewStore'
+import { captureWorksheet } from '../../utils/captureWorksheet'
 import { cn } from '../../utils/cn'
+import { printWorksheet } from '../../utils/printWorksheet'
 import { CanvasBoard } from './CanvasBoard'
 import { CanvasRefsContext } from './canvasRefs'
-import { CompleteModal } from './CompleteModal'
 import { FeedbackPanel } from './FeedbackPanel'
 import { PageRail } from './PageRail'
 import { StudioTitlebar } from './StudioTitlebar'
@@ -16,53 +17,28 @@ export function ReviewStep({ onSelectFile }: { onSelectFile: (uploadId: string) 
   const [canvasRefs] = useState(() => ({ photoRef, boardRef }))
   const panelOpen = useReviewStore((state) => state.panelOpen)
   const showToast = useAppStore((state) => state.showToast)
-  const [completeOpen, setCompleteOpen] = useState(false)
+  const [printing, setPrinting] = useState(false)
 
-  // 학습지 사진과 그 위·옆의 첨삭만 잘라 PDF 파일로 내려받는다.
-  const exportPdf = async () => {
+  // 학습지 사진 안쪽만 인쇄하고, 용지 비율과 방향은 사진 크기를 기준으로 정한다.
+  const printReview = async () => {
     const board = boardRef.current
     const photo = photoRef.current
-    if (!board || !photo) return
+    if (!board || !photo || printing) return
+    setPrinting(true)
     try {
-      const [{ toCanvas }, { jsPDF }] = await Promise.all([import('html-to-image'), import('jspdf')])
-      const boardRect = board.getBoundingClientRect()
-      // 사진, 사진 안의 표시·AI 노트, 교사 코멘트 레이어를 모두 감싸는 영역
-      const parts = [photo, ...photo.querySelectorAll('*'), ...board.querySelectorAll('[aria-live] *')]
-        .filter((el) => !el.closest('[data-pdf-hide]'))
-        .map((el) => el.getBoundingClientRect())
-        .filter((r) => r.width > 0 && r.height > 0)
-      const PAD = 12
-      const left = Math.max(0, Math.min(...parts.map((r) => r.left)) - boardRect.left - PAD)
-      const top = Math.max(0, Math.min(...parts.map((r) => r.top)) - boardRect.top - PAD)
-      const right = Math.min(boardRect.width, Math.max(...parts.map((r) => r.right)) - boardRect.left + PAD)
-      const bottom = Math.min(boardRect.height, Math.max(...parts.map((r) => r.bottom)) - boardRect.top + PAD)
-      const width = right - left
-      const height = bottom - top
-
-      const RATIO = 2
-      const full = await toCanvas(board, {
-        pixelRatio: RATIO,
-        style: { backgroundImage: 'none', backgroundColor: '#ffffff' },
-        filter: (node) => !(node instanceof HTMLElement && 'pdfHide' in node.dataset),
-      })
-      const cropped = document.createElement('canvas')
-      cropped.width = width * RATIO
-      cropped.height = height * RATIO
-      cropped.getContext('2d')!.drawImage(full, left * RATIO, top * RATIO, cropped.width, cropped.height, 0, 0, cropped.width, cropped.height)
-
-      const pdf = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'px', format: [width, height] })
-      pdf.addImage(cropped, 'PNG', 0, 0, width, height)
-      pdf.save('autedi-첨삭.pdf')
-      setCompleteOpen(true)
+      const { canvas, size } = await captureWorksheet(board, photo)
+      await printWorksheet(canvas, size)
     } catch {
-      showToast('PDF를 만들지 못했어요. 잠시 후 다시 시도해주세요.')
+      showToast('인쇄를 준비하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setPrinting(false)
     }
   }
 
   return (
     <CanvasRefsContext value={canvasRefs}>
       <div className="animate-fade-step">
-        <StudioTitlebar onFinish={exportPdf} onSave={() => showToast('현재 첨삭 내용을 저장했어요')} />
+        <StudioTitlebar onFinish={printReview} printing={printing} onSave={() => showToast('현재 첨삭 내용을 저장했어요')} />
         <div
           className={cn(
             'grid h-[calc(100vh-220px)] min-h-[650px] overflow-hidden rounded-[15px] border border-[#d9ddeb] bg-white shadow-[0_18px_48px_rgba(27,35,85,0.09)] max-sm:block max-sm:h-auto max-sm:min-h-0',
@@ -79,7 +55,6 @@ export function ReviewStep({ onSelectFile }: { onSelectFile: (uploadId: string) 
           <FeedbackPanel />
         </div>
       </div>
-      {completeOpen && <CompleteModal onClose={() => setCompleteOpen(false)} />}
     </CanvasRefsContext>
   )
 }

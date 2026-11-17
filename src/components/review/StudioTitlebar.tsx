@@ -3,9 +3,10 @@ import { Button } from '../common/Button'
 type StudioTitlebarProps = {
   onSave: () => void
   onFinish: () => void
+  printing?: boolean
 }
 
-export function StudioTitlebar({ onSave, onFinish }: StudioTitlebarProps) {
+export function StudioTitlebar({ onSave, onFinish, printing = false }: StudioTitlebarProps) {
   return (
     <div className="mb-3 flex items-center justify-between">
       <div className="flex items-center gap-[10px]">
@@ -18,7 +19,7 @@ export function StudioTitlebar({ onSave, onFinish }: StudioTitlebarProps) {
         <Button onClick={onSave} size="xs">
           저장
         </Button>
-        <Button onClick={onFinish} size="xs" variant="primary">
+        <Button aria-busy={printing} disabled={printing} onClick={onFinish} size="xs" variant="primary">
           <span className="text-[11px]">↓&nbsp;</span>PDF 출력
         </Button>
       </div>

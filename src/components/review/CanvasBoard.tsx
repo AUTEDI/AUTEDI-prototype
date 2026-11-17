@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { movedEnough } from '../../hooks/usePointerDrag'
 import { useReviewStore } from '../../stores/useReviewStore'
 import type { TeacherComment } from '../../types/review'
 import {
@@ -50,10 +51,32 @@ export function CanvasBoard() {
   const annotationColor = useReviewStore((state) => state.annotationColor)
   const draft = useReviewStore((state) => state.draft)
   const zoom = useReviewStore((state) => state.zoom)
-  const dragStart = useRef<Point | null>(null)
+  const dragStart = useRef<{ point: Point; x: number; y: number } | null>(null)
   const [boardSize, setBoardSize] = useState<Size | null>(null)
   const [loadedImage, setLoadedImage] = useState<{ url: string; size: Size } | null>(null)
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const deselectOutside = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-teacher-note], [data-teacher-mark]')) return
+      // 입력창이나 인쇄·도구 버튼을 사용하는 동안에는 현재 선택을 유지한다.
+      if (event.target instanceof Element && event.target.closest('button, input, textarea, select, [role="button"]')) return
+      useReviewStore.getState().selectTeacherComment(null)
+    }
+    const escapeSelection = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      dragStart.current = null
+      const review = useReviewStore.getState()
+      review.selectTeacherComment(null)
+      review.setDraft(null)
+    }
+    document.addEventListener('pointerdown', deselectOutside, true)
+    document.addEventListener('keydown', escapeSelection)
+    return () => {
+      document.removeEventListener('pointerdown', deselectOutside, true)
+      document.removeEventListener('keydown', escapeSelection)
+    }
+  }, [])
   // 글자 위 AI 노트끼리 겹치지 않게 배치하려고 각 노트의 크기(확대 전)를 모은다.
   const [noteSizes, setNoteSizes] = useState<Record<string, Size>>({})
   const measureNote = useCallback((id: string, size: Size) => {
@@ -134,28 +157,40 @@ export function CanvasBoard() {
 
   // 표시와 코멘트는 자체 드래그에서 이벤트 전파를 막으므로, 여기에는 빈 사진 영역의 드래그만 들어온다.
   const startDrawing = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (toolMode !== 'annotate') return
+    if (toolMode !== 'annotate' || event.button !== 0 || !event.isPrimary) return
     event.preventDefault()
     const review = useReviewStore.getState()
     review.showManualEditor()
-    dragStart.current = pointerPoint(event)
+    dragStart.current = { point: pointerPoint(event), x: event.clientX, y: event.clientY }
     event.currentTarget.setPointerCapture?.(event.pointerId)
-    review.setDraft(selectionFromPoints(dragStart.current, dragStart.current, annotationStyle))
+    review.setDraft(null)
     review.hideGuide()
   }
 
   const continueDrawing = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragStart.current) return
-    useReviewStore.getState().setDraft(selectionFromPoints(dragStart.current, pointerPoint(event), annotationStyle))
+    const start = dragStart.current
+    if (!start || !movedEnough(start.x, start.y, event)) return
+    useReviewStore.getState().setDraft(selectionFromPoints(start.point, pointerPoint(event), annotationStyle))
   }
 
   const finishDrawing = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragStart.current) return
-    const review = useReviewStore.getState()
-    review.setDraft(selectionFromPoints(dragStart.current, pointerPoint(event), annotationStyle))
+    const start = dragStart.current
+    if (!start) return
     dragStart.current = null
+    const review = useReviewStore.getState()
+    if (!movedEnough(start.x, start.y, event)) {
+      review.setDraft(null)
+      return
+    }
+    review.setDraft(selectionFromPoints(start.point, pointerPoint(event), annotationStyle))
     review.finishDraft()
     if (useReviewStore.getState().draftReady) document.getElementById(COMMENT_INPUT_ID)?.focus()
+  }
+
+  const cancelDrawing = () => {
+    if (!dragStart.current) return
+    dragStart.current = null
+    useReviewStore.getState().setDraft(null)
   }
 
   return (
@@ -176,6 +211,8 @@ export function CanvasBoard() {
         onPointerDown={startDrawing}
         onPointerMove={continueDrawing}
         onPointerUp={finishDrawing}
+        onPointerCancel={cancelDrawing}
+        onLostPointerCapture={cancelDrawing}
         ref={photoRef}
         style={{
           width: fittedSize?.width ?? 0,

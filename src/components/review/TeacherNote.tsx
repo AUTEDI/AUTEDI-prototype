@@ -39,25 +39,28 @@ export function TeacherNote({
         top: Math.max(6, Math.min(board.height - rect.height - 6, event.clientY - board.top - state.dy)),
       })
     },
-    // 움직이지 않고 눌렀다 떼면 선택해서 글자 크기 조절 버튼을 보여준다.
+    // 움직이지 않고 눌렀다 떼면 해당 코멘트를 선택한다.
     end: (state) => {
       if (state.moved) showToast('교사 코멘트 위치를 옮겼어요')
       else selectTeacherComment(comment.id)
     },
   })
 
+  const baseClassName = 'pointer-events-auto absolute z-[8] block cursor-pointer touch-none px-2 py-[3px] font-hand select-none'
+
   return (
     <article
       className={cn(
-        'pointer-events-auto absolute z-[8] block cursor-pointer touch-none px-2 py-[3px] font-hand select-none',
+        baseClassName,
         selected && 'z-[11] rounded-[3px] outline-1 outline-offset-1 outline-[#a58be6]/70 outline-dashed',
         selected
           ? 'text-[#5b35b8] drop-shadow-[0_2px_0_rgba(91,53,184,0.16)]'
           : noteInkClass(comment.color),
         dragging && 'cursor-grabbing opacity-88',
       )}
+      data-pdf-class={cn(baseClassName, noteInkClass(comment.color))}
       data-teacher-note={comment.id}
-      style={{ left: note.left, top: note.top, width: note.width * scale, '--note-scale': scale } as CSSProperties}
+      style={{ left: note.left, top: note.top, width: 'max-content', maxWidth: note.width * scale, '--note-scale': scale } as CSSProperties}
       {...handlers}
     >
       <p className="m-0 text-[length:calc(14px*var(--note-scale))] leading-[1.35] font-semibold tracking-[0.15px] break-words [text-shadow:0_0.4px_0_rgba(23,77,145,0.28)]">
