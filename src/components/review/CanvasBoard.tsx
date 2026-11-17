@@ -25,7 +25,7 @@ function DragGuide() {
   return (
     <div
       className={cn(
-        'pointer-events-none absolute bottom-[13px] left-1/2 -translate-x-1/2 rounded-full bg-[rgba(24,28,54,0.88)] px-3 py-2 text-[7px] whitespace-nowrap text-white transition duration-250',
+        'pointer-events-none absolute bottom-[13px] left-1/2 -translate-x-1/2 rounded-full print:hidden bg-[rgba(24,28,54,0.88)] px-3 py-2 text-[7px] whitespace-nowrap text-white transition duration-250',
         hidden && 'translate-y-2 opacity-0',
       )}
     >
@@ -159,7 +159,8 @@ export function CanvasBoard() {
 
   return (
     <div
-      className="relative overflow-hidden bg-[#f7f8fd] bg-[linear-gradient(rgba(106,117,177,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(106,117,177,0.12)_1px,transparent_1px)] bg-size-[22px_22px] max-sm:min-h-[690px] max-sm:overflow-auto"
+      className="relative overflow-hidden bg-[#f7f8fd] bg-[linear-gradient(rgba(106,117,177,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(106,117,177,0.12)_1px,transparent_1px)] bg-size-[22px_22px] max-sm:min-h-[690px] max-sm:overflow-auto print:bg-white print:bg-none"
+      data-print-area
       ref={boardRef}
     >
       {!imageReady && (
